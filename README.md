@@ -36,3 +36,13 @@ MIT
 觉得好用的话，可以微信扫码请作者喝杯咖啡 ☕
 
 <img src="zanshang.png" alt="微信赞赏码" width="260">
+
+## 安卓版
+
+`android/` 目录是安卓 App：WebView 直接显示本仓库的 `index.html`（每次编译自动复制进去），支持 App 内打开文件和文件管理器「用…打开」md/epub/txt，阅读进度跨重启保留。
+
+```sh
+cd android
+JAVA_HOME=/usr/local/opt/openjdk@21 gradle testDebugUnitTest assembleDebug
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+```

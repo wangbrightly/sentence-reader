@@ -1,12 +1,12 @@
 # 开发工作流进度（安卓版）
 
-当前阶段：阶段五（等手机 adb 连上做真机验证）
+当前阶段：完成（2026-10-08）
 上次更新：2026-10-08
 
 ## 阶段一：需求/边界确认
-- [ ] 边界清单已产出，每条都有一手信息源
-  - WebView 支持 DecompressionStream：MDN 表显示 Chrome/WebView Android 80 起支持该 API；`deflate-raw` 格式的具体起始版本未查到 → 阶段三在真机运行时检测
-  - 手机型号 / Android / WebView 版本：待手机接上 adb 后读取
+- [x] 边界清单已产出，每条都有一手信息源
+  - WebView 支持 DecompressionStream：MDN 表显示 Chrome/WebView Android 80 起支持该 API；`deflate-raw` 格式的具体起始版本未查到 → 2026-10-08 真机实测 WebView 149 支持
+  - 手机：Redmi K60，Android 15（SDK 35），WebView com.google.android.webview 149.0.7827.91（adb 实测）
 
 ## 阶段二：技术选型
 - [x] 方案（2026-10-08 用户确认）：WebView 套壳，index.html 构建时复制进 assets，WebViewAssetLoader 加载，零第三方依赖。实际实现没用 androidx.webkit，自己在 shouldInterceptRequest 里按白名单路由（Router.kt）
@@ -22,4 +22,8 @@
 - [x] git status 干净
 
 ## 阶段五：真机验证收尾
-- [ ] 已在设备可及时间窗口完成
+- [x] 已在设备可及时间窗口完成（2026-10-08）
+  - 电脑经 WebView 调试接口实测：md/txt/epub 解析、杀进程重启后进度保留
+  - 用户手动实测：文件管理「用…打开」md/epub、App 内「打开文件」选 txt，全部正常
+  - 注意：adb screencap 截 WebView 会出现大片白屏，是截图假象（用户确认屏幕实际正常）；看画面改用 CDP Page.captureScreenshot
+  - USB 偶发断线，adb 命令前先 wait-for-device

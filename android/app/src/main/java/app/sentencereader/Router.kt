@@ -15,6 +15,7 @@ object Router {
     fun route(path: String): Route = when (path) {
         "/", "/index.html" -> Route.Asset("index.html", "text/html")
         "/zanshang.png" -> Route.Asset("zanshang.png", "image/png")
+        "/fonts/SourceSerif4-latin.woff2" -> Route.Asset("fonts/SourceSerif4-latin.woff2", "font/woff2")
         INCOMING_PATH -> Route.Incoming
         else -> Route.NotFound
     }

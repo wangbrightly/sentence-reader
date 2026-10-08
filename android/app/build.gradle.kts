@@ -27,16 +27,22 @@ dependencies {
 // 网页版的 index.html 和赞赏码图片只有一份，放在仓库根目录；每次构建前复制进 App，两边永远一致。
 abstract class SyncWebAssets : DefaultTask() {
     @get:InputFiles abstract val sources: ConfigurableFileCollection
+    @get:InputDirectory abstract val fontsDir: DirectoryProperty
     @get:OutputDirectory abstract val outputDir: DirectoryProperty
     @get:Inject abstract val fs: FileSystemOperations
 
     @TaskAction fun sync() {
-        fs.sync { from(sources); into(outputDir) }
+        fs.sync {
+            from(sources)
+            from(fontsDir) { into("fonts") }   // 手机界面的 Source Serif 4 字体及其 OFL 许可证
+            into(outputDir)
+        }
     }
 }
 
 val syncWebAssets = tasks.register<SyncWebAssets>("syncWebAssets") {
     sources.from(rootProject.file("../index.html"), rootProject.file("../zanshang.png"))
+    fontsDir.set(rootProject.layout.projectDirectory.dir("../fonts"))
 }
 
 androidComponents.onVariants { variant ->

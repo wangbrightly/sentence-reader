@@ -32,3 +32,11 @@
 - [x] 点屏幕闪烁：根因 = WebView 默认 -webkit-tap-highlight-color rgba(51,181,229,0.4) 盖在可点的 #stage 上；CDP 运行时置透明后用户真机确认不闪；index.html body 加 transparent，IndexHtmlContractTest.tapHighlightDisabled 锁住；电脑 Chrome 修改前后截图逐像素一致
 - [x] 手机界面放哪：用户选 (a) 共享 index.html，用 @media (pointer: coarse) 切换，不判断"是否在 App 里"
 - [ ] 二期：等 Claude design 设计稿
+
+## 优化二期：按设计稿实现手机界面（2026-10-08 起）
+- 设计稿：Claude Design「Reader Mobile Spec」v1，导出在 ~/Downloads/逐句阅读器 手机界面设计稿.html（打包格式，要解包才能读）
+- 用户拍板：字体用单独文件（fonts/，实际是 1 个可变字体 woff2 + OFL.txt）；建议新增只做 ①返回键收起弹层 ④自动播放常亮
+- [x] 网页：手机界面全部写在 @media (pointer: coarse) 里，tests/mobile.test.mjs 20 个（含电脑版 3 状态逐像素比对基准 0b58bd7）
+- [x] App：返回键（closeOverlay）、常亮（window.ReaderApp.keepScreenOn）、DayNight 主题跟随系统、字体打包；单元测试 23 个
+- [x] 电脑渲染与设计稿 8 屏逐屏对照：布局/尺寸/颜色一致；差异：图标按稿面文字换成真 Phosphor duotone（箭头是三角、×±有底块），待用户看真机定
+- [ ] 真机：4 状态×深浅截图、返回键、常亮、深浅切换（手机熄屏时 WebView 不绘制，CDP 截图会卡住）

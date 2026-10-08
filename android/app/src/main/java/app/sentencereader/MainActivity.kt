@@ -2,12 +2,14 @@ package app.sentencereader
 
 import android.app.Activity
 import android.content.Intent
-import android.graphics.Color
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.OpenableColumns
 import android.view.WindowInsets
+import android.view.WindowManager
+import android.webkit.JavascriptInterface
+import android.window.OnBackInvokedDispatcher
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
@@ -21,6 +23,8 @@ import java.io.ByteArrayInputStream
  * 整个 App 就是一个 WebView，显示和网页版同一份 index.html（构建时从仓库根目录复制进来）。
  * 页面从 https://appassets.androidplatform.net/ 这个固定地址加载，网页的 localStorage/IndexedDB
  * （阅读进度、上次那本书）因此能跨重启保留。
+ * 系统切换深浅色时 Activity 会重建（manifest 不声明 uiMode），WebView 重新读主题，网页的
+ * prefers-color-scheme 随之切换；进度和那本书由网页自己从本地存储恢复。
  */
 class MainActivity : Activity() {
     private lateinit var web: WebView
@@ -31,8 +35,9 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val root = FrameLayout(this).apply { setBackgroundColor(Color.parseColor("#14161b")) }
-        web = WebView(this).apply { setBackgroundColor(Color.parseColor("#14161b")) }
+        val bg = getColor(R.color.reader_bg)
+        val root = FrameLayout(this).apply { setBackgroundColor(bg) }
+        web = WebView(this).apply { setBackgroundColor(bg) }
         root.addView(web)
         setContentView(root)
         // targetSdk 35+ 强制全面屏，页面会钻到状态栏底下，这里把系统栏的位置空出来
@@ -52,8 +57,32 @@ class MainActivity : Activity() {
         }
         web.webViewClient = Client()
         web.webChromeClient = Chrome()
+        web.addJavascriptInterface(AppBridge(), JsBridge.APP_INTERFACE)
         web.loadUrl("https://${Router.HOST}/")
-        handleIntent(intent)
+        // 重建（如切换深浅色）时不重复打开传进来的文件：网页会自己恢复上次那本书
+        if (savedInstanceState == null) handleIntent(intent)
+        if (Build.VERSION.SDK_INT >= 33) {
+            onBackInvokedDispatcher.registerOnBackInvokedCallback(OnBackInvokedDispatcher.PRIORITY_DEFAULT) { onBack() }
+        }
+    }
+
+    @Deprecated("Android 13 以下才会走到这里")
+    override fun onBackPressed() = onBack()
+
+    /** 返回键：先让网页收起赞赏码/菜单；没有弹层可收时退到后台（和系统默认的返回效果一致）。 */
+    private fun onBack() {
+        web.evaluateJavascript(JsBridge.CLOSE_OVERLAY) { result ->
+            if (BackHandling.shouldLeave(result)) moveTaskToBack(true)
+        }
+    }
+
+    /** 网页调用：自动播放开着时保持屏幕常亮。JavascriptInterface 在后台线程被调用，切回主线程改窗口。 */
+    private inner class AppBridge {
+        @JavascriptInterface
+        fun keepScreenOn(on: Boolean) = runOnUiThread {
+            if (on) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        }
     }
 
     override fun onNewIntent(intent: Intent) {

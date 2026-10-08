@@ -34,6 +34,9 @@
   body.dragging #drop { display:flex; }
   #welcome { color:var(--dim); font-size:20px; line-height:2; cursor:default; }
   #welcome b { color:var(--fg); }
+  #tip { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,.75); z-index:10; cursor:pointer; }
+  #tip div { background:#fff; color:#333; border-radius:12px; padding:16px 16px 12px; text-align:center; font-size:14px; cursor:default; }
+  #tip img { display:block; width:min(420px, 80vw, 68vh); height:auto; }
   .hidden { display:none !important; }
 </style>
 </head>
@@ -47,6 +50,7 @@
   <label>跳到第 <input id="jump" type="number" min="1"> 句</label>
   <label>速度 <input id="speed" type="number" min="60" max="2000" step="20" value="300"> 字/分</label>
   <button id="auto" title="按 P 也可以">自动播放：关</button>
+  <button id="tipBtn" title="觉得好用的话">☕ 赞赏</button>
   <input id="file" type="file" accept=".md,.markdown,.txt,.epub" class="hidden">
 </header>
 <div id="progress"><div id="fill"></div></div>
@@ -61,6 +65,7 @@
   <kbd>空格</kbd>/<kbd>→</kbd> 下一句　<kbd>←</kbd> 上一句　<kbd>]</kbd>/<kbd>[</kbd> 下/上一章　<kbd>Home</kbd>/<kbd>End</kbd> 开头/结尾　<kbd>P</kbd> 自动播放　点屏幕右半边前进、左半边后退　点进度条跳转
 </footer>
 <div id="drop">松手打开</div>
+<div id="tip" class="hidden"><div><img src="zanshang.png" alt="微信赞赏码"><p>觉得好用的话，微信扫码请作者喝杯咖啡</p></div></div>
 <script>
 // ---------- 切句 ----------
 // 先按中文句末标点切，再按英文句号+空格+大写切；太短的并入上一句，太长的在分号处再切。
@@ -276,7 +281,9 @@ async function loadLast() { try { const d = await db(); const r = d.transaction(
   r.onsuccess = () => { if (r.result && !SEGS.length) load(r.result.title, r.result.segs, false); }; } catch (e) {} }
 
 // ---------- 操作 ----------
+const tipOpen = () => !$('tip').classList.contains('hidden');
 document.addEventListener('keydown', e => {
+  if (tipOpen()) { if (e.key === 'Escape') $('tip').classList.add('hidden'); return; }
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
   if (e.key === ' ' || e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === 'PageDown') { e.preventDefault(); stopAuto(); go(i + 1); }
   else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp' || e.key === 'PageUp') { e.preventDefault(); stopAuto(); go(i - 1); }
@@ -292,6 +299,8 @@ $('progress').addEventListener('click', e => { stopAuto(); go(Math.floor(e.clien
 $('jump').addEventListener('change', e => { stopAuto(); go(parseInt(e.target.value, 10) - 1); e.target.value = ''; e.target.blur(); });
 $('toc').addEventListener('change', e => { stopAuto(); go(+e.target.value); e.target.blur(); });
 $('auto').addEventListener('click', e => { toggleAuto(); e.target.blur(); });
+$('tipBtn').addEventListener('click', e => { stopAuto(); $('tip').classList.remove('hidden'); e.target.blur(); });
+$('tip').addEventListener('click', e => { if (e.target.id === 'tip') $('tip').classList.add('hidden'); });
 $('open').addEventListener('click', e => { $('file').click(); e.target.blur(); });
 $('file').addEventListener('change', e => { if (e.target.files[0]) openFile(e.target.files[0]); e.target.value = ''; });
 let dragDepth = 0;

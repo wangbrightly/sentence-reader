@@ -27,3 +27,8 @@
   - 用户手动实测：文件管理「用…打开」md/epub、App 内「打开文件」选 txt，全部正常
   - 注意：adb screencap 截 WebView 会出现大片白屏，是截图假象（用户确认屏幕实际正常）；看画面改用 CDP Page.captureScreenshot
   - USB 偶发断线，adb 命令前先 wait-for-device
+
+## 优化一期（2026-10-08）
+- [x] 点屏幕闪烁：根因 = WebView 默认 -webkit-tap-highlight-color rgba(51,181,229,0.4) 盖在可点的 #stage 上；CDP 运行时置透明后用户真机确认不闪；index.html body 加 transparent，IndexHtmlContractTest.tapHighlightDisabled 锁住；电脑 Chrome 修改前后截图逐像素一致
+- [x] 手机界面放哪：用户选 (a) 共享 index.html，用 @media (pointer: coarse) 切换，不判断"是否在 App 里"
+- [ ] 二期：等 Claude design 设计稿

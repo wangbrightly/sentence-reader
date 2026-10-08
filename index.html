@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>逐句阅读器</title>
+<style>
+  :root { --bg:#14161b; --fg:#f2f2f2; --dim:#6b7080; --accent:#e0533d; --bar:#2a2d36; --line:#3a3e4a; }
+  * { box-sizing: border-box; }
+  html, body { margin:0; height:100%; background:var(--bg); color:var(--fg);
+    font-family: -apple-system, "PingFang SC", "Hiragino Sans GB", sans-serif; }
+  body { display:flex; flex-direction:column; user-select:none; }
+  header { display:flex; gap:10px; align-items:center; padding:12px 16px; color:var(--dim); font-size:14px; flex-wrap:wrap; }
+  header input[type=number] { width:80px; }
+  header input, header select, header button { background:var(--bar); color:var(--fg); border:1px solid var(--line); border-radius:6px; padding:4px 8px; font-size:14px; }
+  header select { max-width:260px; }
+  header button { cursor:pointer; }
+  #title { color:var(--fg); max-width:320px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  #progress { height:6px; background:var(--bar); cursor:pointer; }
+  #fill { height:100%; width:0; background:var(--accent); }
+  main { flex:1; display:flex; flex-direction:column; justify-content:center; align-items:center; padding:16px; gap:28px; text-align:center; cursor:pointer; overflow:hidden; }
+  .side { color:var(--dim); font-size:clamp(15px, 2vw, 22px); line-height:1.5; min-height:1.5em; max-width:900px; white-space:pre-wrap;
+    display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
+  #cur { font-size:clamp(24px, 3.8vw, 46px); line-height:1.5; max-width:1000px; white-space:pre-wrap; font-weight:600; }
+  #cur.long { text-align:left; font-size:clamp(20px, 2.8vw, 34px); }
+  #cur.h { color:var(--accent); }
+  #cur.code { font-family: Menlo, "SF Mono", monospace; font-weight:400; font-size:clamp(13px, 1.5vw, 18px); text-align:left;
+    background:var(--bar); padding:16px 20px; border-radius:8px; max-height:60vh; overflow:auto; }
+  #chap { color:var(--dim); font-size:14px; letter-spacing:.05em; min-height:1.2em; }
+  footer { padding:10px 16px 16px; color:var(--dim); font-size:13px; text-align:center; }
+  kbd { background:var(--bar); border-radius:4px; padding:1px 6px; color:var(--fg); }
+  #drop { position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(20,22,27,.92);
+    border:3px dashed var(--accent); font-size:28px; z-index:9; pointer-events:none; }
+  body.dragging #drop { display:flex; }
+  #welcome { color:var(--dim); font-size:20px; line-height:2; cursor:default; }
+  #welcome b { color:var(--fg); }
+  .hidden { display:none !important; }
+</style>
+</head>
+<body>
+<header>
+  <button id="open" title="也可以直接把文件拖进窗口">打开文件</button>
+  <span id="title"></span>
+  <span id="count"></span>
+  <span style="flex:1"></span>
+  <select id="toc" title="跳到章节"></select>
+  <label>跳到第 <input id="jump" type="number" min="1"> 句</label>
+  <label>速度 <input id="speed" type="number" min="60" max="2000" step="20" value="300"> 字/分</label>
+  <button id="auto" title="按 P 也可以">自动播放：关</button>
+  <input id="file" type="file" accept=".md,.markdown,.txt,.epub" class="hidden">
+</header>
+<div id="progress"><div id="fill"></div></div>
+<main id="stage">
+  <div id="chap"></div>
+  <div class="side" id="prev"></div>
+  <div id="cur"></div>
+  <div class="side" id="next"></div>
+  <div id="welcome">把 <b>.md</b> / <b>.epub</b> / <b>.txt</b> 文件拖进这个窗口<br>或点左上角「打开文件」<br>（会记住上次读的书和读到哪一句）</div>
+</main>
+<footer>
+  <kbd>空格</kbd>/<kbd>→</kbd> 下一句　<kbd>←</kbd> 上一句　<kbd>]</kbd>/<kbd>[</kbd> 下/上一章　<kbd>Home</kbd>/<kbd>End</kbd> 开头/结尾　<kbd>P</kbd> 自动播放　点屏幕右半边前进、左半边后退　点进度条跳转
+</footer>
+<div id="drop">松手打开</div>
+<script>
+// ---------- 切句 ----------
+// 先按中文句末标点切，再按英文句号+空格+大写切；太短的并入上一句，太长的在分号处再切。
+function splitSentences(text) {
+  text = text.replace(/\s+/g, ' ').trim();
+  if (!text) return [];
+  const cjk = text.match(/[^。！？!?…]+(?:[。！？!?…]+[”’」』）》)"']*)?/g) || [text];
+  let parts = [];
+  for (const c of cjk) parts.push(...c.split(/(?<=[a-z0-9)\]"'”’][.!?]["'”’)\]]*)\s+(?=["“‘(\[]?[A-Z0-9])/));
+  parts = parts.map(s => s.trim()).filter(Boolean);
+  const out = [];
+  for (const p of parts) {
+    if (out.length && p.length < 6) out[out.length - 1] += p;
+    else out.push(p);
+  }
+  return out.flatMap(s => s.length > 140 ? s.split(/(?<=[；;])\s*/).filter(Boolean) : [s]).flatMap(chunk);
+}
+// 超过 280 字的仍然一屏放不下：在逗号/冒号/破折号处切开，再拼回每段不超过约 200 字
+function chunk(s) {
+  if (s.length <= 280) return [s];
+  const out = [];
+  for (const p of s.split(/(?<=[，,:：—、])\s*/)) {
+    if (out.length && out[out.length - 1].length + p.length <= 200) out[out.length - 1] += (/[,:]$/.test(out[out.length - 1]) ? ' ' : '') + p;
+    else out.push(p);
+  }
+  return out;
+}
+
+// ---------- Markdown ----------
+function stripInline(s) {
+  return s.replace(/!\[([^\]]*)\]\([^)]*\)/g, (m, a) => a ? `［图：${a}］` : '')
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1').replace(/\[([^\]]+)\]\[[^\]]*\]/g, '$1')
+    .replace(/<[^>]+>/g, '').replace(/(\*\*|__)(.+?)\1/g, '$2').replace(/(^|[^*\w])[*_]([^*_]+)[*_](?=[^*\w]|$)/g, '$1$2')
+    .replace(/~~(.+?)~~/g, '$1').replace(/`([^`]+)`/g, '$1').replace(/&nbsp;/g, ' ').trim();
+}
+function parseMarkdown(src) {
+  const segs = [], lines = src.replace(/\r\n?/g, '\n').split('\n');
+  let chap = '', buf = [], i = 0;
+  const flush = () => { const t = stripInline(buf.join(' ')); buf = []; for (const s of splitSentences(t)) segs.push({ t: s, c: chap }); };
+  if (lines[0] && lines[0].trim() === '---') { i = 1; while (i < lines.length && lines[i].trim() !== '---') i++; i++; }
+  for (; i < lines.length; i++) {
+    const line = lines[i], t = line.trim();
+    const fence = t.match(/^(```|~~~)/);
+    if (fence) {
+      flush(); const code = [];
+      for (i++; i < lines.length && !lines[i].trim().startsWith(fence[1]); i++) code.push(lines[i]);
+      for (let k = 0; k < code.length; k += 25) segs.push({ t: code.slice(k, k + 25).join('\n'), c: chap, k: 'code' });
+      continue;
+    }
+    const h = t.match(/^(#{1,6})\s+(.*?)\s*#*$/);
+    if (h) { flush(); chap = stripInline(h[2]); segs.push({ t: chap, c: chap, k: 'h', lv: h[1].length }); continue; }
+    if (!t || /^([-*_]\s*){3,}$/.test(t)) { flush(); continue; }
+    if (/^\|?\s*:?-{3,}/.test(t) && t.includes('-') && /^[|\s:-]+$/.test(t)) continue;
+    if (t.startsWith('|')) { flush(); buf.push(t.replace(/^\||\|$/g, '').split('|').map(x => x.trim()).join('  ·  ')); flush(); continue; }
+    const li = t.match(/^(?:>\s*)*(?:[-*+]|\d+[.)])\s+(.*)$/);
+    if (li) { flush(); buf.push(li[1]); continue; }
+    buf.push(t.replace(/^(>\s*)+/, ''));
+  }
+  flush();
+  return segs;
+}
+
+// ---------- EPUB（用浏览器自带的解压能力读 zip，不依赖任何外部库）----------
+async function readZip(buf) {
+  const dv = new DataView(buf), u8 = new Uint8Array(buf), td = new TextDecoder();
+  let e = buf.byteLength - 22;
+  while (e >= 0 && dv.getUint32(e, true) !== 0x06054b50) e--;
+  if (e < 0) throw new Error('不是有效的 EPUB（zip）文件');
+  const n = dv.getUint16(e + 10, true); let p = dv.getUint32(e + 16, true);
+  const files = {};
+  for (let k = 0; k < n; k++) {
+    const method = dv.getUint16(p + 10, true), size = dv.getUint32(p + 20, true);
+    const nl = dv.getUint16(p + 28, true), xl = dv.getUint16(p + 30, true), cl = dv.getUint16(p + 32, true);
+    const off = dv.getUint32(p + 42, true), name = td.decode(u8.subarray(p + 46, p + 46 + nl));
+    files[name] = { method, size, off };
+    p += 46 + nl + xl + cl;
+  }
+  return async name => {
+    const f = files[name]; if (!f) return null;
+    const start = f.off + 30 + dv.getUint16(f.off + 26, true) + dv.getUint16(f.off + 28, true);
+    const data = u8.subarray(start, start + f.size);
+    if (f.method === 0) return td.decode(data);
+    const s = new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+    return td.decode(await new Response(s).arrayBuffer());
+  };
+}
+function parseXml(s, html) {
+  let d = new DOMParser().parseFromString(s, html ? 'text/html' : 'application/xhtml+xml');
+  if (d.querySelector('parsererror')) d = new DOMParser().parseFromString(s, 'text/html');
+  return d;
+}
+const BLOCK = new Set('P DIV H1 H2 H3 H4 H5 H6 LI BLOCKQUOTE PRE DD DT TD TH FIGCAPTION SECTION ARTICLE ASIDE HEADER FOOTER TR TABLE UL OL DL FIGURE BODY NAV'.split(' '));
+const SKIP = new Set(['SCRIPT', 'STYLE', 'RT', 'RP', 'HEAD', 'SVG', 'TITLE']);
+function htmlToSegs(doc, segs, state) {
+  let buf = '';
+  const flush = () => { for (const s of splitSentences(buf)) segs.push({ t: s, c: state.chap }); buf = ''; };
+  const walk = node => {
+    for (const ch of node.childNodes) {
+      if (ch.nodeType === 3) { buf += ch.nodeValue; continue; }
+      if (ch.nodeType !== 1) continue;
+      const tag = ch.tagName.toUpperCase();
+      if (SKIP.has(tag)) continue;
+      if (tag === 'BR') { buf += ' '; continue; }
+      if (tag === 'IMG') { const a = ch.getAttribute('alt'); if (a && a.trim()) buf += `［图：${a.trim()}］`; continue; }
+      if (/^H[1-6]$/.test(tag)) {
+        flush(); const t = ch.textContent.replace(/\s+/g, ' ').trim();
+        if (t) { state.chap = t; segs.push({ t, c: t, k: 'h', lv: +tag[1] }); }
+        continue;
+      }
+      if (tag === 'PRE') { flush(); const t = ch.textContent.replace(/^\n+|\s+$/g, ''); if (t) segs.push({ t, c: state.chap, k: 'code' }); continue; }
+      if (BLOCK.has(tag)) { flush(); walk(ch); flush(); } else walk(ch);
+    }
+  };
+  if (doc.body) walk(doc.body);
+  flush();
+}
+async function parseEpub(buf) {
+  const get = await readZip(buf);
+  const container = parseXml(await get('META-INF/container.xml'));
+  const opfPath = container.querySelector('rootfile').getAttribute('full-path');
+  const base = opfPath.includes('/') ? opfPath.slice(0, opfPath.lastIndexOf('/') + 1) : '';
+  const opf = parseXml(await get(opfPath));
+  const title = (opf.getElementsByTagNameNS('*', 'title')[0] || {}).textContent;
+  const items = {};
+  for (const it of opf.getElementsByTagNameNS('*', 'item')) items[it.getAttribute('id')] = it.getAttribute('href');
+  const segs = [], state = { chap: '' };
+  for (const ref of opf.getElementsByTagNameNS('*', 'itemref')) {
+    const href = items[ref.getAttribute('idref')]; if (!href) continue;
+    const path = resolvePath(base, decodeURIComponent(href.split('#')[0]));
+    const s = await get(path); if (!s) continue;
+    const before = segs.length;
+    htmlToSegs(parseXml(s), segs, state);
+    if (segs.length > before && segs[before].k !== 'h') {
+      // 这一章没有标题标签时，用文件里的 <title> 当章节名
+      const dt = parseXml(s).querySelector('title'); const t = dt && dt.textContent.trim();
+      if (t && t !== title) { state.chap = t; for (let k = before; k < segs.length && !segs[k].k; k++) segs[k].c = t; }
+    }
+  }
+  return { title, segs };
+}
+function resolvePath(base, rel) {
+  const out = [];
+  for (const p of (base + rel).split('/')) { if (p === '..') out.pop(); else if (p && p !== '.') out.push(p); }
+  return out.join('/');
+}
+
+// ---------- 播放 ----------
+const $ = id => document.getElementById(id);
+let SEGS = [], BOOK = '', i = 0, timer = null, TOC = [];
+const posKey = () => 'pos:' + BOOK + ':' + SEGS.length;
+
+function show() {
+  if (!SEGS.length) return;
+  const c = SEGS[i];
+  const cur = $('cur');
+  cur.textContent = c.t;
+  cur.className = c.k === 'h' ? 'h' : c.k === 'code' ? 'code' : (c.t.length > 90 ? 'long' : '');
+  $('prev').textContent = i > 0 ? SEGS[i-1].t : '';
+  $('next').textContent = i < SEGS.length - 1 ? SEGS[i+1].t : '（完）';
+  $('chap').textContent = c.k === 'h' ? '' : c.c;
+  $('count').textContent = `第 ${i+1} / ${SEGS.length} 句`;
+  $('fill').style.width = ((i+1) / SEGS.length * 100) + '%';
+  let t = -1; for (let k = 0; k < TOC.length && TOC[k] <= i; k++) t = k;
+  if (t >= 0) $('toc').value = String(TOC[t]);
+  try { localStorage.setItem(posKey(), i); } catch (e) {}
+}
+function go(n) { if (!SEGS.length) return; i = Math.max(0, Math.min(SEGS.length - 1, n)); show(); }
+function chapter(dir) {
+  if (!TOC.length) return;
+  if (dir > 0) { const n = TOC.find(x => x > i); if (n !== undefined) go(n); }
+  else { const prev = TOC.filter(x => x < i); go(prev.length ? prev[prev.length - 1] : 0); }
+}
+// 自动播放：按"字数"估算停留时间。中文每个汉字算 1 字，英文每个单词算 1 字。
+function units(s) { return (s.match(/[㐀-鿿豈-﫿]/g) || []).length + (s.match(/[A-Za-z0-9]+/g) || []).length; }
+function stopAuto() { clearTimeout(timer); timer = null; $('auto').textContent = '自动播放：关'; }
+function tick() {
+  if (i >= SEGS.length - 1) return stopAuto();
+  const speed = Math.max(60, +$('speed').value || 300);
+  const wait = Math.max(1200, units(SEGS[i].t) / speed * 60000 + 400);
+  timer = setTimeout(() => { go(i + 1); tick(); }, wait);
+}
+function toggleAuto() { if (!SEGS.length) return; if (timer) stopAuto(); else { $('auto').textContent = '自动播放：开'; tick(); } }
+
+function load(title, segs, save) {
+  stopAuto();
+  BOOK = title; SEGS = segs.length ? segs : [{ t: '（这个文件里没有找到文字）', c: '' }];
+  $('welcome').classList.add('hidden');
+  $('title').textContent = title; $('title').title = title; document.title = title + ' - 逐句阅读器';
+  TOC = []; const sel = $('toc'); sel.innerHTML = '';
+  const minLv = Math.min(...SEGS.filter(s => s.k === 'h').map(s => s.lv), 9);
+  SEGS.forEach((s, k) => { if (s.k === 'h' && s.lv <= minLv + 1) {
+    TOC.push(k); const o = document.createElement('option'); o.value = k;
+    o.textContent = (s.lv > minLv ? '　' : '') + (s.t.length > 30 ? s.t.slice(0, 30) + '…' : s.t); sel.appendChild(o);
+  }});
+  sel.classList.toggle('hidden', !TOC.length);
+  i = 0; try { const s = parseInt(localStorage.getItem(posKey()), 10); if (s >= 0 && s < SEGS.length) i = s; } catch (e) {}
+  show();
+  if (save) saveLast(title, SEGS);
+}
+async function openFile(f) {
+  try {
+    const name = f.name.replace(/\.[^.]+$/, '');
+    if (/\.epub$/i.test(f.name)) { const r = await parseEpub(await f.arrayBuffer()); load(r.title || name, r.segs, true); }
+    else load(name, parseMarkdown(await f.text()), true);
+  } catch (e) { alert('打开失败：' + e.message); console.error(e); }
+}
+
+// 记住上次那本书（存在浏览器本地数据库里，只在这台电脑上）
+function db() { return new Promise((ok, no) => { const r = indexedDB.open('reader', 1);
+  r.onupgradeneeded = () => r.result.createObjectStore('kv'); r.onsuccess = () => ok(r.result); r.onerror = () => no(r.error); }); }
+async function saveLast(title, segs) { try { const d = await db(); d.transaction('kv', 'readwrite').objectStore('kv').put({ title, segs }, 'last'); } catch (e) {} }
+async function loadLast() { try { const d = await db(); const r = d.transaction('kv').objectStore('kv').get('last');
+  r.onsuccess = () => { if (r.result && !SEGS.length) load(r.result.title, r.result.segs, false); }; } catch (e) {} }
+
+// ---------- 操作 ----------
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+  if (e.key === ' ' || e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === 'PageDown') { e.preventDefault(); stopAuto(); go(i + 1); }
+  else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp' || e.key === 'PageUp') { e.preventDefault(); stopAuto(); go(i - 1); }
+  else if (e.key === 'Home') { stopAuto(); go(0); }
+  else if (e.key === 'End') { stopAuto(); go(SEGS.length - 1); }
+  else if (e.key === ']') { stopAuto(); chapter(1); }
+  else if (e.key === '[') { stopAuto(); chapter(-1); }
+  else if (e.key === 'p' || e.key === 'P') toggleAuto();
+});
+$('stage').addEventListener('click', e => { if (!SEGS.length) return $('file').click(); if (e.target.id === 'cur' && e.target.className === 'code' && getSelection().toString()) return;
+  stopAuto(); go(e.clientX > innerWidth / 2 ? i + 1 : i - 1); });
+$('progress').addEventListener('click', e => { stopAuto(); go(Math.floor(e.clientX / innerWidth * SEGS.length)); });
+$('jump').addEventListener('change', e => { stopAuto(); go(parseInt(e.target.value, 10) - 1); e.target.value = ''; e.target.blur(); });
+$('toc').addEventListener('change', e => { stopAuto(); go(+e.target.value); e.target.blur(); });
+$('auto').addEventListener('click', e => { toggleAuto(); e.target.blur(); });
+$('open').addEventListener('click', e => { $('file').click(); e.target.blur(); });
+$('file').addEventListener('change', e => { if (e.target.files[0]) openFile(e.target.files[0]); e.target.value = ''; });
+let dragDepth = 0;
+addEventListener('dragenter', e => { e.preventDefault(); dragDepth++; document.body.classList.add('dragging'); });
+addEventListener('dragleave', () => { if (--dragDepth <= 0) { dragDepth = 0; document.body.classList.remove('dragging'); } });
+addEventListener('dragover', e => e.preventDefault());
+addEventListener('drop', e => { e.preventDefault(); dragDepth = 0; document.body.classList.remove('dragging');
+  const f = e.dataTransfer.files[0]; if (f) openFile(f); });
+loadLast();
+</script>
+</body>
+</html>

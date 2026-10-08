@@ -1,6 +1,6 @@
 # 开发工作流进度（安卓版）
 
-当前阶段：完成（2026-10-08）
+当前阶段：手机界面二期完成（2026-10-09），待用户决定是否推送 GitHub
 上次更新：2026-10-08
 
 ## 阶段一：需求/边界确认
@@ -39,4 +39,7 @@
 - [x] 网页：手机界面全部写在 @media (pointer: coarse) 里，tests/mobile.test.mjs 20 个（含电脑版 3 状态逐像素比对基准 0b58bd7）
 - [x] App：返回键（closeOverlay）、常亮（window.ReaderApp.keepScreenOn）、DayNight 主题跟随系统、字体打包；单元测试 23 个
 - [x] 电脑渲染与设计稿 8 屏逐屏对照：布局/尺寸/颜色一致；差异：图标按稿面文字换成真 Phosphor duotone（箭头是三角、×±有底块），待用户看真机定
-- [ ] 真机：4 状态×深浅截图、返回键、常亮、深浅切换（手机熄屏时 WebView 不绘制，CDP 截图会卡住）
+- [x] 真机（2026-10-09）：4 状态×深浅截图与设计稿对照一致；返回键先收弹层再退后台；自动播放时窗口带 KEEP_SCREEN_ON、停止后去掉；cmd uimode night no 切浅色后 Activity 重建、书和位置保留（已恢复用户原设置 auto）
+- [x] 中文 600 字重在真机不粗：K60 只有 NotoSerifCJKsc-Regular、Chrome 不合成粗体、小米宋体(miclock-miserif-sc-vf)网页里调不到；用户选描边模拟：.android 类下 -webkit-text-stroke:0.025em，网页测试 22 个
+- 图标：用户选保持 Phosphor duotone 现状
+- 坑：手机熄屏(Dozing)时 CDP Page.captureScreenshot 会卡住；USB 抖动时 CDP 连接会中途断，脚本要检测「没做完就断开」并重试

@@ -225,3 +225,26 @@ test('手机：正文用 Source Serif 4 字体（随页面打包，离线可用�
   assert.match(await p.$eval('#cur', el => getComputedStyle(el).fontFamily), /^"Source Serif 4"/);
   await p.browserContext().close();
 });
+
+// 安卓大多只自带思源宋体常规体，600 字重加不粗（Redmi K60 实测）：用约 0.025em 描边模拟粗体
+const ANDROID_UA = 'Mozilla/5.0 (Linux; Android 15; 23013RK75C Build/AQ3A; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/149.0.0.0 Mobile Safari/537.36';
+test('安卓：加粗的中文用描边模拟，常规字和代码块不描边', async () => {
+  const p = await open(pageUrl, { phone: true });
+  await p.setUserAgent(ANDROID_UA); await p.reload(); await loadBook(p);
+  assert.equal(await p.$eval('#cur', el => getComputedStyle(el).webkitTextStrokeWidth), '0.8px');   // 章节标题 32px
+  await p.evaluate(() => go(1));
+  const stroke = sel => p.$eval(sel, el => getComputedStyle(el).webkitTextStrokeWidth);
+  assert.equal(await stroke('#cur'), '0.6px');          // 24px × 0.025
+  assert.equal(await stroke('#mTitle'), '0.5px');       // 20px × 0.025
+  assert.equal(await stroke('#mOpen'), '0.375px');      // 15px 按钮文字
+  assert.equal(await stroke('.side'), '0px');
+  await p.evaluate(() => { SEGS[0] = { t: 'let a = 1', c: '', k: 'code' }; go(0); });
+  assert.equal(await stroke('#cur'), '0px');
+  await p.browserContext().close();
+});
+
+test('非安卓触屏设备不描边', async () => {
+  const p = await open(pageUrl, { phone: true }); await loadBook(p);
+  assert.equal(await p.$eval('#cur', el => getComputedStyle(el).webkitTextStrokeWidth), '0px');
+  await p.browserContext().close();
+});

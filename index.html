@@ -156,6 +156,8 @@
     #tip div { border-radius:4px; padding:15px 15px 10px; color:#201e1d; font-size:14px; }
     #tip img { width:280px; }
     #tip p { margin:10px 0 0; }
+    /* 安卓大多只自带思源宋体常规体，600 字重加不粗（Redmi K60 实测）：用描边模拟粗体，0.025em ≈ 24px 字 0.6px */
+    .android :is(#cur:not(.code), .m-h1, #mTitle, .m-btn:not(.quiet), #mJumpGo) { -webkit-text-stroke:0.025em currentColor; }
   }
 </style>
 </head>
@@ -501,6 +503,7 @@ addEventListener('dragover', e => e.preventDefault());
 addEventListener('drop', e => { e.preventDefault(); dragDepth = 0; document.body.classList.remove('dragging');
   const f = e.dataTransfer.files[0]; if (f) openFile(f); });
 // ---------- 手机界面（触屏才显示；电脑上这些元素是隐藏的，更新它们没有副作用） ----------
+document.documentElement.classList.toggle('android', /Android/i.test(navigator.userAgent));
 const speedNow = () => +$('speed').value || 300;
 function showPhone() {
   const pct = ((i + 1) / SEGS.length * 100) + '%';

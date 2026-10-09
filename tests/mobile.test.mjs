@@ -1,5 +1,5 @@
 // 手机界面（@media (pointer: coarse)）的行为测试 + 电脑版不变的像素比对。
-// 运行：node --test tests/
+// 运行：node --test tests/*.test.mjs
 // 依赖本机 ~/.claude-tools/webshot 里装好的 Puppeteer（不进仓库）；可用 PUPPETEER_DIR 指定别处。
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';

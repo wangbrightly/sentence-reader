@@ -51,4 +51,4 @@ JAVA_HOME=/usr/local/opt/openjdk@21 gradle testDebugUnitTest assembleDebug
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
-网页端手机界面测试：`node --test tests/`（需要本机装有 Puppeteer）。
+网页端手机界面测试：`node --test tests/*.test.mjs`（需要本机装有 Puppeteer）。

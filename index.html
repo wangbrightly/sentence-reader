@@ -287,10 +287,23 @@ function chunk(s) {
 
 // ---------- Markdown ----------
 function stripInline(s) {
-  return s.replace(/!\[([^\]]*)\]\([^)]*\)/g, (m, a) => a ? `［图：${a}］` : '')
+  s = s.replace(/!\[([^\]]*)\]\([^)]*\)/g, (m, a) => a ? `［图：${a}］` : '')
     .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1').replace(/\[([^\]]+)\]\[[^\]]*\]/g, '$1')
     .replace(/<[^>]+>/g, '').replace(/(\*\*|__)(.+?)\1/g, '$2').replace(/(^|[^*\w])[*_]([^*_]+)[*_](?=[^*\w]|$)/g, '$1$2')
-    .replace(/~~(.+?)~~/g, '$1').replace(/`([^`]+)`/g, '$1').replace(/&nbsp;/g, ' ').trim();
+    .replace(/~~(.+?)~~/g, '$1').replace(/`([^`]+)`/g, '$1');
+  return decodeEntities(s).replace(/\u00a0/g, ' ').trim();
+}
+// HTML 字符引用（&#xA; &amp; &ldquo; …）按标准 Markdown 还原成字符。在去掉 <标签> 之后才做，
+// 还原出的 < > 只是文字；命名引用交给 textarea 解码（只解码，不会生成标签）。不认识的原样保留。
+const entityBox = document.createElement('textarea');
+function decodeEntities(s) {
+  return s.replace(/&(#[0-9]{1,7}|#[xX][0-9a-fA-F]{1,6}|[A-Za-z][A-Za-z0-9]{1,31});/g, (m, e) => {
+    if (e[0] === '#') {
+      const n = /^#[xX]/.test(e) ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10);
+      return n > 0 && n <= 0x10ffff && !(n >= 0xd800 && n <= 0xdfff) ? String.fromCodePoint(n) : m;
+    }
+    entityBox.innerHTML = m; return entityBox.value;
+  });
 }
 function parseMarkdown(src) {
   const segs = [], lines = src.replace(/\r\n?/g, '\n').split('\n');

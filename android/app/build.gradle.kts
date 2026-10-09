@@ -14,6 +14,18 @@ android {
         versionName = "0.1.0"
     }
 
+    // 正式签名：签名文件和密码都不进仓库，由 release.sh 从 Mac 钥匙串取出后通过环境变量传进来
+    val releaseKeystore = System.getenv("READER_KEYSTORE")
+    if (releaseKeystore != null) {
+        signingConfigs.create("release") {
+            storeFile = file(releaseKeystore)
+            storePassword = System.getenv("READER_KEYSTORE_PASSWORD")
+            keyAlias = "sentence-reader"
+            keyPassword = System.getenv("READER_KEYSTORE_PASSWORD")
+        }
+        buildTypes.getByName("release").signingConfig = signingConfigs.getByName("release")
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17

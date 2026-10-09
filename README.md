@@ -41,8 +41,14 @@ MIT
 
 `android/` 目录是安卓 App：WebView 直接显示本仓库的 `index.html`（每次编译自动复制进去），支持 App 内打开文件和文件管理器「用…打开」md/epub/txt，阅读进度跨重启保留。
 
+**下载安装：** 到 [Releases](https://github.com/wangbrightly/sentence-reader/releases) 下载最新的 `sentence-reader-v*.apk`，在手机上打开安装（需允许「安装未知来源应用」）。
+
+自己编译：
+
 ```sh
 cd android
 JAVA_HOME=/usr/local/opt/openjdk@21 gradle testDebugUnitTest assembleDebug
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
+
+网页端手机界面测试：`node --test tests/`（需要本机装有 Puppeteer）。

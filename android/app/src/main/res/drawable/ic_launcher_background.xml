@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 图标背景：照搬 ~/Projects/pdf-reader 的图标背景渐变，两个 App 在桌面上成一个系列 -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <gradient
+        android:type="linear"
+        android:angle="315"
+        android:startColor="#F5F8FF"
+        android:endColor="#E4E9FA" />
+</shape>

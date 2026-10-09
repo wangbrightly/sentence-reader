@@ -157,8 +157,9 @@ class MainActivity : Activity() {
         ): Boolean {
             chooserCallback?.onReceiveValue(null)
             chooserCallback = callback
-            // 不用网页的 accept=".md,.epub…"：安卓按 MIME 过滤，.md 常被识别成未知类型而选不到
+            // 不直接用网页的 accept=".md,.epub…"：安卓按 MIME 过滤，扩展名要换成类型列表
             val pick = Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("*/*")
+                .putExtra(Intent.EXTRA_MIME_TYPES, FilePicker.MIME_TYPES)
             startActivityForResult(pick, PICK_FILE)
             return true
         }

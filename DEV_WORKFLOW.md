@@ -48,3 +48,4 @@
 - 正式签名：~/.android-keys/sentence-reader-release.jks（别名 sentence-reader），密码在钥匙串 sentence-reader-release-keystore；证书 SHA-256 CC:1A:6F:91:…:D6:69；打包用 android/release.sh
 - 文件选择器只认 text/plain、text/markdown、text/x-markdown、application/epub+zip（K60 实测 .md→text/markdown），不放 octet-stream
 - Release：https://github.com/wangbrightly/sentence-reader/releases/tag/v0.1.0 ，APK sha256 06762558…c6fb，下载回来核对一致
+- v0.1.1（2026-10-09）：App 图标。书本从 pdf-reader 图标前景 PNG 原样剪下（原 HTML 源文件已随旧 scratchpad 丢失），上方换成蓝色渐变横条 + 琥珀色句号；APK sha256 bc168628…，下载核对一致

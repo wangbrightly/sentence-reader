@@ -43,3 +43,8 @@
 - [x] 中文 600 字重在真机不粗：K60 只有 NotoSerifCJKsc-Regular、Chrome 不合成粗体、小米宋体(miclock-miserif-sc-vf)网页里调不到；用户选描边模拟：.android 类下 -webkit-text-stroke:0.025em，网页测试 22 个
 - 图标：用户选保持 Phosphor duotone 现状
 - 坑：手机熄屏(Dozing)时 CDP Page.captureScreenshot 会卡住；USB 抖动时 CDP 连接会中途断，脚本要检测「没做完就断开」并重试
+
+## 发布 v0.1.0（2026-10-09）
+- 正式签名：~/.android-keys/sentence-reader-release.jks（别名 sentence-reader），密码在钥匙串 sentence-reader-release-keystore；证书 SHA-256 CC:1A:6F:91:…:D6:69；打包用 android/release.sh
+- 文件选择器只认 text/plain、text/markdown、text/x-markdown、application/epub+zip（K60 实测 .md→text/markdown），不放 octet-stream
+- Release：https://github.com/wangbrightly/sentence-reader/releases/tag/v0.1.0 ，APK sha256 06762558…c6fb，下载回来核对一致

@@ -56,13 +56,24 @@ for (const [name, setup] of [
   ['读到第 3 句', async p => { await loadBook(p); await p.evaluate(() => go(2)); }],
   ['赞赏弹窗', async p => { await loadBook(p); await p.click('#tipBtn'); }],
 ]) {
+  // 偶发抖动（2026-10-09 查过）：跑全套测试时约每 5–8 次有一次差 11 个像素，都在「打开文件」按钮上边框的抗锯齿；
+  // 单独跑、高负载并发、按本测试方式交替截图共 170 次都复现不了，根因没找到。所以不一致时重截，最多 3 次，
+  // 有一次逐像素一致就算通过——真改坏了布局会 3 次都不一致，照样报错。
   test(`电脑版不变：${name}`, async () => {
-    const shots = [];
-    for (const url of [baselineUrl, pageUrl]) {
-      const p = await open(url); await setup(p); await sleep(100);
-      shots.push(Buffer.from(await p.screenshot())); await p.browserContext().close();
+    let shots;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      shots = [];
+      for (const url of [baselineUrl, pageUrl]) {
+        const p = await open(url); await setup(p); await sleep(100);
+        shots.push(Buffer.from(await p.screenshot())); await p.browserContext().close();
+      }
+      if (shots[0].equals(shots[1])) break;
     }
-    assert.ok(shots[0].equals(shots[1]), '电脑版截图和基准不一致');
+    if (!shots[0].equals(shots[1])) {   // 3 次都不一致：留下两张图，方便看差在哪
+      const dir = mkdtempSync(join(tmpdir(), 'reader-diff-'));
+      writeFileSync(join(dir, 'baseline.png'), shots[0]); writeFileSync(join(dir, 'current.png'), shots[1]);
+      assert.fail(`电脑版截图和基准不一致，截图在 ${dir}`);
+    }
   });
 }
 

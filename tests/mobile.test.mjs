@@ -1,5 +1,5 @@
-// 手机界面（@media (pointer: coarse)）的行为测试 + 电脑版不变的像素比对。
-// 运行：node --test tests/*.test.mjs
+// 手机界面（@media (pointer: coarse)）的行为测试 + 电脑版不变的像素比对（顶栏新增的搜索按钮除外）。
+// 运行：node --test --test-concurrency=1 tests/*.test.mjs（逐个文件跑；4 个文件同时开浏览器时电脑版像素比对会偶发抖动）
 // 依赖本机 ~/.claude-tools/webshot 里装好的 Puppeteer（不进仓库）；可用 PUPPETEER_DIR 指定别处。
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
@@ -56,15 +56,17 @@ for (const [name, setup] of [
   ['读到第 3 句', async p => { await loadBook(p); await p.evaluate(() => go(2)); }],
   ['赞赏弹窗', async p => { await loadBook(p); await p.click('#tipBtn'); }],
 ]) {
-  // 偶发抖动（2026-10-09 查过）：跑全套测试时约每 5–8 次有一次差 11 个像素，都在「打开文件」按钮上边框的抗锯齿；
-  // 单独跑、高负载并发、按本测试方式交替截图共 170 次都复现不了，根因没找到。所以不一致时重截，最多 3 次，
-  // 有一次逐像素一致就算通过——真改坏了布局会 3 次都不一致，照样报错。
+  // 偶发抖动：差 11 个像素，都在「打开文件」按钮上边框的抗锯齿。2026-10-10 查明与负载有关——4 个测试文件同时跑
+  // （各开一个浏览器）时 5 遍失败 1 遍，逐个文件跑（--test-concurrency=1）8 遍全过。保留"不一致就重截、最多 3 次"
+  // 作为兜底：真改坏了布局会 3 次都不一致，照样报错。
   test(`电脑版不变：${name}`, async () => {
     let shots;
     for (let attempt = 0; attempt < 3; attempt++) {
       shots = [];
       for (const url of [baselineUrl, pageUrl]) {
-        const p = await open(url); await setup(p); await sleep(100);
+        const p = await open(url);
+        await p.addStyleTag({ content: '#qBtn { display:none !important }' });   // 顶栏的搜索按钮是有意新增的（2026-10-10），比对其余部分
+        await setup(p); await sleep(100);
         shots.push(Buffer.from(await p.screenshot())); await p.browserContext().close();
       }
       if (shots[0].equals(shots[1])) break;

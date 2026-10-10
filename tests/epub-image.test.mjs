@@ -1,5 +1,5 @@
 // EPUB 插图：书里打包的图片单独占一屏显示（2026-10-10 加）。
-// 运行：node --test tests/*.test.mjs
+// 运行：node --test --test-concurrency=1 tests/*.test.mjs（逐个文件跑；4 个文件同时开浏览器时电脑版像素比对会偶发抖动）
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';

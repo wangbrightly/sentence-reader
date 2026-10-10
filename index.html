@@ -24,6 +24,9 @@
   #cur { font-size:clamp(24px, 3.8vw, 46px); line-height:1.5; max-width:1000px; white-space:pre-wrap; font-weight:600; }
   #cur.long { text-align:left; font-size:clamp(20px, 2.8vw, 34px); }
   #cur.h { color:var(--accent); }
+  #cur.img img { display:block; max-width:100%; max-height:62vh; margin:0 auto; }
+  img.gl { display:inline; height:1em; width:auto; vertical-align:-0.12em; }
+  #cur.img .cap { margin-top:10px; color:var(--dim); font-size:15px; font-weight:400; text-align:center; }
   #cur.code { font-family: Menlo, "SF Mono", monospace; font-weight:400; font-size:clamp(13px, 1.5vw, 18px); text-align:left;
     background:var(--bar); padding:16px 20px; border-radius:8px; max-height:60vh; overflow:auto; }
   #chap { color:var(--dim); font-size:14px; letter-spacing:.05em; min-height:1.2em; }
@@ -75,6 +78,8 @@
     #cur.long { font-size:20px; line-height:1.65; }
     #cur.h { font-size:32px; line-height:1.3; color:var(--r-heading); }
     #cur.code { font:400 13px/1.6 Menlo, "Roboto Mono", monospace; white-space:pre; background:var(--r-surface); padding:15px; border-radius:2px; max-height:60%; }
+    #cur.img img { width:100%; max-height:50vh; object-fit:contain; }
+    #cur.img .cap { color:var(--r-text2); font-size:13px; }
 
     /* 底部控件区 126 = 12 + 进度行 28 + 线 2 + 12 + 按钮 56 + 16；是 #stage 的兄弟，点这里不翻句 */
     #mBar { flex:none; flex-direction:column; height:126px; padding:12px 15px 16px; }
@@ -157,7 +162,7 @@
     #tip img { width:280px; }
     #tip p { margin:10px 0 0; }
     /* 安卓大多只自带思源宋体常规体，600 字重加不粗（Redmi K60 实测）：用描边模拟粗体，0.025em ≈ 24px 字 0.6px */
-    .android :is(#cur:not(.code), .m-h1, #mTitle, .m-btn:not(.quiet), #mJumpGo) { -webkit-text-stroke:0.025em currentColor; }
+    .android :is(#cur:not(.code):not(.img), .m-h1, #mTitle, .m-btn:not(.quiet), #mJumpGo) { -webkit-text-stroke:0.025em currentColor; }
   }
 </style>
 </head>
@@ -347,13 +352,13 @@ async function readZip(buf) {
     files[name] = { method, size, off };
     p += 46 + nl + xl + cl;
   }
-  return async name => {
+  // bin=true 返回原始字节（插图用），否则按文字解码
+  return async (name, bin) => {
     const f = files[name]; if (!f) return null;
     const start = f.off + 30 + dv.getUint16(f.off + 26, true) + dv.getUint16(f.off + 28, true);
-    const data = u8.subarray(start, start + f.size);
-    if (f.method === 0) return td.decode(data);
-    const s = new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
-    return td.decode(await new Response(s).arrayBuffer());
+    let data = u8.subarray(start, start + f.size);
+    if (f.method !== 0) data = new Uint8Array(await new Response(new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer());
+    return bin ? data : td.decode(data);
   };
 }
 function parseXml(s, html) {
@@ -363,17 +368,37 @@ function parseXml(s, html) {
 }
 const BLOCK = new Set('P DIV H1 H2 H3 H4 H5 H6 LI BLOCKQUOTE PRE DD DT TD TH FIGCAPTION SECTION ARTICLE ASIDE HEADER FOOTER TR TABLE UL OL DL FIGURE BODY NAV'.split(' '));
 const SKIP = new Set(['SCRIPT', 'STYLE', 'RT', 'RP', 'HEAD', 'SVG', 'TITLE']);
-function htmlToSegs(doc, segs, state) {
-  let buf = '';
-  const flush = () => { for (const s of splitSentences(buf)) segs.push({ t: s, c: state.chap }); buf = ''; };
+// 插图：长边超过 160 像素的单独占一屏；更小的（生僻字、小图标）用占位符 \uE000 留在句子里，显示时换回图片。
+// 依据 2026-10-10 真书实测：《诸子百家》3610 张、《国家是怎样破产的》161 张小图都是嵌在句子里的字或图标。
+const INLINE = '\uE000', INLINE_MAX = 160;
+function htmlToSegs(doc, segs, state, dir, pics) {
+  let buf = '', pend = [];
+  const flush = () => {
+    for (const t of splitSentences(buf)) {
+      const n = t.split(INLINE).length - 1, sg = { t, c: state.chap };
+      if (n) sg.inl = pend.splice(0, n);
+      segs.push(sg);
+    }
+    buf = ''; pend = [];
+  };
+  const pic = (src, alt, big) => {
+    if (!src) return; alt = (alt || '').trim();
+    const p = pics[imgPath(dir, src)];
+    if (p && !big && p.w && Math.max(p.w, p.h) <= INLINE_MAX) { buf += INLINE; pend.push(p.blob); return; }
+    flush();
+    if (p) segs.push({ t: alt ? `［图：${alt}］` : '［图］', c: state.chap, k: 'img', img: p.blob, alt });
+    else if (alt) segs.push({ t: `［图：${alt}］`, c: state.chap });   // 书里找不到这张图：有说明就留说明
+  };
   const walk = node => {
     for (const ch of node.childNodes) {
       if (ch.nodeType === 3) { buf += ch.nodeValue; continue; }
       if (ch.nodeType !== 1) continue;
       const tag = ch.tagName.toUpperCase();
+      if (tag === 'SVG') { for (const im of ch.getElementsByTagNameNS('*', 'image'))   // 封面常见写法：<svg><image xlink:href>
+        pic(svgHref(im), '', true); continue; }
       if (SKIP.has(tag)) continue;
       if (tag === 'BR') { buf += ' '; continue; }
-      if (tag === 'IMG') { const a = ch.getAttribute('alt'); if (a && a.trim()) buf += `［图：${a.trim()}］`; continue; }
+      if (tag === 'IMG') { pic(ch.getAttribute('src'), ch.getAttribute('alt')); continue; }
       if (/^H[1-6]$/.test(tag)) {
         flush(); const t = ch.textContent.replace(/\s+/g, ' ').trim();
         if (t) { state.chap = t; segs.push({ t, c: t, k: 'h', lv: +tag[1] }); }
@@ -395,21 +420,52 @@ async function parseEpub(buf) {
   const title = (opf.getElementsByTagNameNS('*', 'title')[0] || {}).textContent;
   const items = {};
   for (const it of opf.getElementsByTagNameNS('*', 'item')) items[it.getAttribute('id')] = it.getAttribute('href');
-  const segs = [], state = { chap: '' };
+  const segs = [], state = { chap: '' }, pics = {};
   for (const ref of opf.getElementsByTagNameNS('*', 'itemref')) {
     const href = items[ref.getAttribute('idref')]; if (!href) continue;
     const path = resolvePath(base, decodeURIComponent(href.split('#')[0]));
     const s = await get(path); if (!s) continue;
     const before = segs.length;
-    htmlToSegs(parseXml(s), segs, state);
+    const doc = parseXml(s), dir = path.slice(0, path.lastIndexOf('/') + 1);
+    for (const el of doc.querySelectorAll('img, image')) {
+      const src = el.tagName.toLowerCase() === 'img' ? el.getAttribute('src') : svgHref(el), path = src && imgPath(dir, src);
+      if (path && !(path in pics)) { const b = await get(path, true);
+        pics[path] = b && { blob: new Blob([b], { type: IMG_TYPES[path.split('.').pop().toLowerCase()] || 'image/*' }), ...imgSize(b) }; }
+    }
+    htmlToSegs(doc, segs, state, dir, pics);
     if (segs.length > before && segs[before].k !== 'h') {
       // 这一章没有标题标签时，用文件里的 <title> 当章节名
       const dt = parseXml(s).querySelector('title'); const t = dt && dt.textContent.trim();
-      if (t && t !== title) { state.chap = t; for (let k = before; k < segs.length && !segs[k].k; k++) segs[k].c = t; }
+      if (t && t !== title) { state.chap = t; for (let k = before; k < segs.length && segs[k].k !== 'h'; k++) segs[k].c = t; }
     }
   }
   return { title, segs };
 }
+const imgPath = (dir, src) => resolvePath(dir, decodeURIComponent(src.split('#')[0]));
+const svgHref = el => el.getAttributeNS('http://www.w3.org/1999/xlink', 'href') || el.getAttribute('href');
+// 从文件头读图片宽高（不解码整张图）；认不出的格式返回 {}，按大图处理
+function imgSize(b) {
+  const dv = new DataView(b.buffer, b.byteOffset, b.byteLength), n = b.length;
+  if (n > 24 && dv.getUint32(0) === 0x89504e47) return { w: dv.getUint32(16), h: dv.getUint32(20) };
+  if (n > 10 && b[0] === 0x47 && b[1] === 0x49 && b[2] === 0x46) return { w: dv.getUint16(6, true), h: dv.getUint16(8, true) };
+  if (n > 30 && dv.getUint32(0) === 0x52494646 && dv.getUint32(8) === 0x57454250) {
+    const kind = String.fromCharCode(b[12], b[13], b[14], b[15]);
+    if (kind === 'VP8 ') return { w: dv.getUint16(26, true) & 0x3fff, h: dv.getUint16(28, true) & 0x3fff };
+    if (kind === 'VP8L') { const v = dv.getUint32(21, true); return { w: (v & 0x3fff) + 1, h: ((v >> 14) & 0x3fff) + 1 }; }
+    if (kind === 'VP8X') return { w: 1 + (b[24] | b[25] << 8 | b[26] << 16), h: 1 + (b[27] | b[28] << 8 | b[29] << 16) };
+  }
+  if (n > 4 && b[0] === 0xff && b[1] === 0xd8) {
+    for (let p = 2; p + 9 < n;) {
+      if (b[p] !== 0xff) { p++; continue; }
+      const m = b[p + 1];
+      if (m >= 0xc0 && m <= 0xcf && m !== 0xc4 && m !== 0xc8 && m !== 0xcc) return { w: dv.getUint16(p + 7), h: dv.getUint16(p + 5) };
+      if (m === 0xd8 || m === 0x01 || (m >= 0xd0 && m <= 0xd7)) { p += 2; continue; }
+      p += 2 + dv.getUint16(p + 2);
+    }
+  }
+  return {};
+}
+const IMG_TYPES = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml', bmp: 'image/bmp' };
 function resolvePath(base, rel) {
   const out = [];
   for (const p of (base + rel).split('/')) { if (p === '..') out.pop(); else if (p && p !== '.') out.push(p); }
@@ -420,21 +476,37 @@ function resolvePath(base, rel) {
 const $ = id => document.getElementById(id);
 let SEGS = [], BOOK = '', i = 0, timer = null, TOC = [];
 const posKey = () => 'pos:' + BOOK + ':' + SEGS.length;
+let picUrls = [];
+const blobUrl = b => { const u = URL.createObjectURL(b); picUrls.push(u); return u; };
+// 句子里的小图（占位符 INLINE）换回图片，按字的大小排在文字中间
+function fillText(el, sg) {
+  if (!sg.inl) { el.textContent = sg.t; return; }
+  el.textContent = '';
+  sg.t.split(INLINE).forEach((part, k) => {
+    if (k) { const im = document.createElement('img'); im.className = 'gl'; im.alt = ''; im.src = blobUrl(sg.inl[k - 1]); el.append(im); }
+    if (part) el.append(part);
+  });
+}
 
 function show() {
   if (!SEGS.length) return;
   const c = SEGS[i];
   const cur = $('cur');
-  cur.textContent = c.t;
-  cur.className = c.k === 'h' ? 'h' : c.k === 'code' ? 'code' : (c.t.length > 90 ? 'long' : '');
-  $('prev').textContent = i > 0 ? SEGS[i-1].t : '';
-  $('next').textContent = i < SEGS.length - 1 ? SEGS[i+1].t : '（完）';
+  for (const u of picUrls) URL.revokeObjectURL(u); picUrls = [];
+  if (c.k === 'img') {   // 插图：图片 + 下方说明
+    cur.textContent = ''; const im = document.createElement('img');
+    im.src = blobUrl(c.img); im.alt = c.alt || '插图'; cur.append(im);
+    if (c.alt) { const cap = document.createElement('div'); cap.className = 'cap'; cap.textContent = c.alt; cur.append(cap); }
+  } else fillText(cur, c);
+  cur.className = c.k === 'h' ? 'h' : c.k === 'code' ? 'code' : c.k === 'img' ? 'img' : (c.t.length > 90 ? 'long' : '');
+  if (i > 0) fillText($('prev'), SEGS[i-1]); else $('prev').textContent = '';
+  if (i < SEGS.length - 1) fillText($('next'), SEGS[i+1]); else $('next').textContent = '（完）';
   $('chap').textContent = c.k === 'h' ? '' : c.c;
   $('count').textContent = `第 ${i+1} / ${SEGS.length} 句`;
   $('fill').style.width = ((i+1) / SEGS.length * 100) + '%';
   let t = -1; for (let k = 0; k < TOC.length && TOC[k] <= i; k++) t = k;
   if (t >= 0) $('toc').value = String(TOC[t]);
-  try { localStorage.setItem(posKey(), i); } catch (e) {}
+  try { localStorage.setItem(posKey(), i); localStorage.setItem('post:' + BOOK, c.t); } catch (e) {}
   showPhone();
 }
 function go(n) { if (!SEGS.length) return; i = Math.max(0, Math.min(SEGS.length - 1, n)); show(); }
@@ -446,10 +518,13 @@ function chapter(dir) {
 // 自动播放：按"字数"估算停留时间。中文每个汉字算 1 字，英文每个单词算 1 字。
 function units(s) { return (s.match(/[㐀-鿿豈-﫿]/g) || []).length + (s.match(/[A-Za-z0-9]+/g) || []).length; }
 function stopAuto() { clearTimeout(timer); timer = null; $('auto').textContent = '自动播放：关'; setPlaying(false); }
+function segWait(sg) {   // 插图固定停 3 秒；文字按字数和速度算
+  if (sg.k === 'img') return 3000;
+  return Math.max(1200, units(sg.t) / Math.max(60, +$('speed').value || 300) * 60000 + 400);
+}
 function tick() {
   if (i >= SEGS.length - 1) return stopAuto();
-  const speed = Math.max(60, +$('speed').value || 300);
-  const wait = Math.max(1200, units(SEGS[i].t) / speed * 60000 + 400);
+  const wait = segWait(SEGS[i]);
   timer = setTimeout(() => { go(i + 1); tick(); }, wait);
 }
 function toggleAuto() { if (!SEGS.length) return; if (timer) stopAuto(); else { $('auto').textContent = '自动播放：开'; setPlaying(true); tick(); } }
@@ -467,9 +542,25 @@ function load(title, segs, save) {
   }});
   sel.classList.toggle('hidden', !TOC.length);
   $('mToc').innerHTML = sel.innerHTML;
-  i = 0; try { const s = parseInt(localStorage.getItem(posKey()), 10); if (s >= 0 && s < SEGS.length) i = s; } catch (e) {}
+  i = 0; try { const s = parseInt(localStorage.getItem(posKey()), 10); if (s >= 0 && s < SEGS.length) i = s; else i = oldPos(); } catch (e) {}
   show();
   if (save) saveLast(title, SEGS);
+}
+// 现在的句数下没有进度时，接上旧进度（切句方式变了，比如加了插图）：
+// 旧句数正好等于"不含插图的句数"就精确换算，否则按比例估算；记过当前那句话的，再在附近按原话找回原位
+function oldPos() {
+  const pre = 'pos:' + BOOK + ':'; let old = null;
+  for (let k = 0; k < localStorage.length; k++) {
+    const key = localStorage.key(k); if (!key.startsWith(pre) || key === posKey()) continue;
+    const n = Number(key.slice(pre.length)), v = parseInt(localStorage.getItem(key), 10);
+    if (n > 0 && v >= 0 && v < n) old = { n, v };
+  }
+  const said = localStorage.getItem('post:' + BOOK);
+  if (!old && !said) return 0;
+  const text = SEGS.map((s, k) => s.k === 'img' ? -1 : k).filter(k => k >= 0);
+  const est = !old ? 0 : old.n === text.length ? text[old.v] : Math.min(SEGS.length - 1, Math.round(old.v / old.n * SEGS.length));
+  if (said) for (let d = 0; d < 3000; d++) for (const k of [est - d, est + d]) if (SEGS[k] && SEGS[k].t === said) return k;
+  return est;
 }
 async function openFile(f) {
   try {

@@ -10,8 +10,8 @@ android {
         applicationId = "app.sentencereader"
         minSdk = 26
         targetSdk = 36
-        versionCode = 4
-        versionName = "0.1.3"
+        versionCode = 5
+        versionName = "0.1.4"
     }
 
     // 正式签名：签名文件和密码都不进仓库，由 release.sh 从 Mac 钥匙串取出后通过环境变量传进来

@@ -110,7 +110,7 @@ test('手机空白页：点「赞赏」只弹赞赏码，不弹文件选择', as
   await p.browserContext().close();
 });
 
-test('手机阅读：底栏 126 高，四个按钮 56×56，相邻间距 12', async () => {
+test('手机阅读：底栏 126 高，四个按钮 56×56 且均匀分布', async () => {
   const p = await open(pageUrl, { phone: true }); await loadBook(p);
   const bar = await box(p, '#mBar');
   assert.equal(bar.h, 126); assert.equal(Math.round(bar.y + bar.h), 866);
@@ -118,7 +118,8 @@ test('手机阅读：底栏 126 高，四个按钮 56×56，相邻间距 12', as
   for (const sel of ['#mMenuBtn', '#mPrev', '#mPlay', '#mNext']) {
     const b = await box(p, sel); assert.equal(b.w, 56, sel); assert.equal(b.h, 56, sel); btns.push(b);
   }
-  assert.equal(btns[2].x - (btns[1].x + 56), 12); assert.equal(btns[3].x - (btns[2].x + 56), 12);
+  const gaps = btns.slice(1).map((b, i) => b.x - (btns[i].x + 56));
+  assert.ok(gaps.every(g => Math.abs(g - gaps[0]) < 1));
   await p.browserContext().close();
 });
 
@@ -144,7 +145,7 @@ test('手机阅读：上一句/下一句按钮', async () => {
 test('手机阅读：进度文字和进度线跟着翻句', async () => {
   const p = await open(pageUrl, { phone: true }); await loadBook(p); await p.evaluate(() => go(1));
   const n = await p.evaluate(() => SEGS.length);
-  assert.equal(await p.$eval('#mCount', el => el.textContent), `第 2 / ${n} 句`);
+  assert.equal(await p.$eval('#mCount', el => el.textContent), `已读 ${Math.round(2 / n * 100)}% · 第 2 句`);
   assert.equal(await p.$eval('#mFill', el => el.style.width), `${2 / n * 100}%`);
   await p.browserContext().close();
 });
@@ -222,7 +223,7 @@ test('手机：自动播放时通知 App 保持常亮，停止时取消', async 
   await p.browserContext().close();
 });
 
-for (const [dark, bg, accent] of [[false, 'rgb(243, 242, 242)', 'rgb(0, 136, 176)'], [true, 'rgb(32, 30, 29)', 'rgb(98, 197, 238)']]) {
+for (const [dark, bg, accent] of [[false, 'rgb(248, 247, 243)', 'rgb(226, 237, 230)'], [true, 'rgb(28, 36, 33)', 'rgb(51, 73, 64)']]) {
   test(`手机配色跟随系统：${dark ? '深色' : '浅色'}`, async () => {
     const p = await open(pageUrl, { phone: true, dark }); await loadBook(p);
     assert.equal(await p.$eval('body', el => getComputedStyle(el).backgroundColor), bg);
@@ -244,12 +245,12 @@ const ANDROID_UA = 'Mozilla/5.0 (Linux; Android 15; 23013RK75C Build/AQ3A; wv) A
 test('安卓：加粗的中文用描边模拟，常规字和代码块不描边', async () => {
   const p = await open(pageUrl, { phone: true });
   await p.setUserAgent(ANDROID_UA); await p.reload(); await loadBook(p);
-  assert.equal(await p.$eval('#cur', el => getComputedStyle(el).webkitTextStrokeWidth), '0.8px');   // 章节标题 32px
+  assert.equal(await p.$eval('#cur', el => getComputedStyle(el).webkitTextStrokeWidth), '0.3px');
   await p.evaluate(() => go(1));
   const stroke = sel => p.$eval(sel, el => getComputedStyle(el).webkitTextStrokeWidth);
-  assert.equal(await stroke('#cur'), '0.6px');          // 24px × 0.025
-  assert.equal(await stroke('#mTitle'), '0.5px');       // 20px × 0.025
-  assert.equal(await stroke('#mOpen'), '0.375px');      // 15px 按钮文字
+  assert.equal(await stroke('#cur'), '0.24px');
+  assert.equal(await stroke('#mTitle'), '0px');
+  assert.equal(await stroke('#mOpen'), '0px');
   assert.equal(await stroke('.side'), '0px');
   await p.evaluate(() => { SEGS[0] = { t: 'let a = 1', c: '', k: 'code' }; go(0); });
   assert.equal(await stroke('#cur'), '0px');

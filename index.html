@@ -74,16 +74,19 @@
     unicode-range:U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
   .m-only { display:none; }
   @media (pointer: coarse) {
-    :root { --r-bg:#f3f2f2; --r-surface:#eae9e9; --r-text:#201e1d; --r-text2:#605d5d; --r-hint:#7d7979; --r-track:#d7d3d3;
-      --r-accent:#0088b0; --r-accent-press:#006786; --r-accent-text:#006786; --r-on-accent:#f3f2f2; --r-heading:#d6006c;
-      --r-divider:rgba(32,30,29,.16); --r-press:rgba(32,30,29,.07); --r-scrim:rgba(45,43,43,.5);
-      --r-font:"Source Serif 4", "Noto Serif CJK SC", "Songti SC", serif; }
+    :root { --r-bg:#f8f7f3; --r-surface:#f0f2ed; --r-text:#252e2b; --r-text2:#687671; --r-hint:#7b8580; --r-track:#d7e0da;
+      --r-accent:#276f65; --r-accent-press:#19564e; --r-accent-text:#195f55; --r-on-accent:#fff; --r-heading:#276f65; --r-play-bg:#e2ede6;
+      --r-divider:rgba(42,75,65,.11); --r-press:rgba(32,70,58,.08); --r-scrim:rgba(22,36,31,.48);
+      --r-font:"Source Serif 4", "Noto Serif CJK SC", "Songti SC", serif;
+      --r-ui-font:-apple-system, "PingFang SC", "Noto Sans CJK SC", sans-serif; }
     @media (prefers-color-scheme: dark) {
-      :root { --r-bg:#201e1d; --r-surface:#2d2b2b; --r-text:#f3f2f2; --r-text2:#bab6b6; --r-hint:#7d7979; --r-track:#444141;
-        --r-accent:#62c5ee; --r-accent-press:#99e0ff; --r-accent-text:#62c5ee; --r-on-accent:#201e1d; --r-heading:#ff90b1;
+      :root { --r-bg:#1c2421; --r-surface:#29332f; --r-text:#f3f2eb; --r-text2:#b4c1b9; --r-hint:#899790; --r-track:#46534c;
+        --r-accent:#92cdbb; --r-accent-press:#b6e1d1; --r-accent-text:#a6d8c8; --r-on-accent:#17352e; --r-heading:#a6d8c8; --r-play-bg:#334940;
         --r-divider:rgba(243,242,242,.16); --r-press:rgba(243,242,242,.08); --r-scrim:rgba(0,0,0,.6); }
     }
     html, body { background:var(--r-bg); color:var(--r-text); font-family:var(--r-font); }
+    body { background-image:radial-gradient(ellipse at 50% 34%, rgba(255,255,255,.58), transparent 68%); }
+    @media (prefers-color-scheme: dark) { body { background-image:radial-gradient(ellipse at 50% 34%, rgba(255,255,255,.035), transparent 68%); } }
     header, footer, #progress, #welcome { display:none !important; }
     .m-only { display:flex; }
     .ic { display:block; flex:none; width:28px; height:28px; fill:currentColor; }
@@ -92,36 +95,44 @@
     body:not(:has(#welcome:not(.hidden))) #mEmpty { display:none; }
 
     /* 翻句区：顶部章节行 48，正文块在剩余空间居中、整体上移 40 */
-    #stage { padding:0 30px 40px; gap:30px; align-items:stretch; justify-content:flex-start; text-align:left; }
-    #chap { flex:none; height:48px; line-height:48px; margin-bottom:-30px; font-size:13px; letter-spacing:0; color:var(--r-text2);
+    #stage { min-height:0; padding:0 30px clamp(8px, 2vh, 20px); gap:clamp(12px, 2.5vh, 24px); align-items:stretch; justify-content:flex-start; text-align:left; }
+    #chap { flex:none; height:48px; line-height:48px; margin-bottom:calc(-1 * clamp(12px, 2.5vh, 24px)); font:500 13px/48px var(--r-ui-font); letter-spacing:.03em; color:var(--r-text2);
       white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    #chap:not(:empty)::before { content:""; display:inline-block; width:5px; height:5px; margin:0 8px 2px 0; border-radius:50%; background:var(--r-accent); }
     #prev { margin-top:auto; }
     #next { margin-bottom:auto; }
-    .side { max-width:none; min-height:24px; font-size:15px; line-height:1.6; color:var(--r-hint); -webkit-line-clamp:2; }
-    #cur { max-width:none; font-size:24px; line-height:1.6; text-wrap:pretty; }
-    #cur.long { font-size:20px; line-height:1.65; }
-    #cur.h { font-size:32px; line-height:1.3; color:var(--r-heading); }
+    .side { flex:none; max-width:none; min-height:24px; font-size:15px; font-weight:400; letter-spacing:.015em; line-height:1.75; color:var(--r-hint); -webkit-line-clamp:2; }
+    #cur { flex:0 1 auto; min-height:0; overflow:auto; overscroll-behavior:contain; max-width:none; font-size:var(--reading-size, 24px); font-weight:500; letter-spacing:.025em; line-height:1.75; text-wrap:pretty; overflow-wrap:anywhere; }
+    #cur.long { font-size:calc(var(--reading-size, 24px) * .84); line-height:1.8; }
+    body.hide-context .side { display:none; }
+    body.hide-context #cur { margin:auto 0; }
+    #mOverflow { position:absolute; bottom:calc(133px + env(safe-area-inset-bottom)); left:0; right:0; justify-content:center; font:12px var(--r-ui-font); color:var(--r-text2); pointer-events:none; }
+    #cur.h { font-size:30px; font-weight:600; line-height:1.45; color:var(--r-heading); }
     #cur.code { font:400 13px/1.6 Menlo, "Roboto Mono", monospace; white-space:pre; background:var(--r-surface); padding:15px; border-radius:2px; max-height:60%; }
     #cur.img img { width:100%; max-height:50vh; object-fit:contain; }
     #cur.img .cap { color:var(--r-text2); font-size:13px; }
 
     /* 底部控件区 126 = 12 + 进度行 28 + 线 2 + 12 + 按钮 56 + 16；是 #stage 的兄弟，点这里不翻句 */
-    #mBar { flex:none; flex-direction:column; height:126px; padding:12px 15px 16px; }
-    #mStatus { height:28px; padding:0 15px; display:flex; align-items:center; justify-content:space-between; font-size:13px; }
-    #mCount, #mCount2 { color:var(--r-text2); font-variant-numeric:tabular-nums; }
+    #mBar { flex:none; flex-direction:column; height:calc(126px + env(safe-area-inset-bottom)); padding:12px 15px calc(16px + env(safe-area-inset-bottom)); }
+    #mStatus { height:28px; padding:0 15px; display:flex; align-items:center; justify-content:space-between; font-size:12px; }
+    #mCount, #mCount2 { color:var(--r-text2); font-variant-numeric:tabular-nums; font-family:var(--r-ui-font); }
     #mAutoState { display:none; align-items:center; gap:5px; color:var(--r-accent-text); }
     #mAutoState .ic { width:16px; height:16px; }
     body.playing #mAutoState { display:flex; }
-    #mTrack { position:relative; height:2px; margin:0 15px; background:var(--r-track); }
-    #mFill { position:absolute; left:0; top:0; bottom:0; width:0; background:var(--r-accent); }
-    #mBtns { display:flex; align-items:center; gap:12px; height:56px; margin-top:12px; }
-    .mb { flex:none; display:flex; align-items:center; justify-content:center; width:56px; height:56px; padding:0; border:0; border-radius:2px;
+    #mTrack { position:relative; height:3px; margin:0 15px; border-radius:3px; background:var(--r-track); }
+    #mFill { position:absolute; left:0; top:0; bottom:0; width:0; border-radius:inherit; background:var(--r-accent); }
+    #mBtns { display:flex; align-items:center; justify-content:space-around; gap:0; height:56px; margin-top:12px; }
+    .mb { flex:none; display:flex; align-items:center; justify-content:center; width:56px; height:56px; padding:0; border:0; border-radius:18px;
       background:transparent; color:var(--r-text); cursor:pointer; }
     .mb:active { background:var(--r-press); }
     .mb.s48 { width:48px; height:48px; }
     .mb.s48 .ic { width:24px; height:24px; }
-    #mPlay { background:var(--r-accent); color:var(--r-on-accent); }
-    #mPlay:active { background:var(--r-accent-press); }
+    #mPlay { background:var(--r-play-bg); color:var(--r-accent-text); border-radius:18px; }
+    body.playing #mPlay { background:var(--r-accent); color:var(--r-on-accent); }
+    #mBtns .ic { width:24px; height:24px; }
+    #mMenuBtn .ic, #mPrev .ic, #mNext .ic { fill:none; }
+    #mMenuBtn, #mPrev, #mNext { color:var(--r-text2); }
+    #mPlay:active { background:var(--r-accent-press); color:var(--r-on-accent); }
     #mPlay .i-pause, body.playing #mPlay .i-play { display:none; }
     body.playing #mPlay .i-pause { display:block; }
 
@@ -133,7 +144,7 @@
     .m-sub { font-size:15px; line-height:1.65; color:var(--r-text2); text-wrap:pretty; }
     .m-actions { display:flex; flex-direction:column; gap:10px; padding:0 15px 20px; }
     .m-btn { display:flex; align-items:center; justify-content:center; gap:8px; height:48px; padding:0; border:1px solid var(--r-divider);
-      border-radius:2px; background:transparent; color:var(--r-text); font:600 15px var(--r-font); cursor:pointer; }
+      border-radius:14px; background:transparent; color:var(--r-text); font:600 15px var(--r-font); cursor:pointer; }
     .m-btn:active { background:var(--r-press); }
     .m-btn .ic { width:20px; height:20px; }
     .m-btn.primary { height:56px; gap:10px; border:0; background:var(--r-accent); color:var(--r-on-accent); font-size:17px; }
@@ -144,43 +155,61 @@
     /* 菜单：自底部滑入 200ms，收起 150ms */
     #mMenu { position:fixed; inset:0; z-index:8; }
     #mScrim { position:absolute; inset:0; background:var(--r-scrim); opacity:0; transition:opacity 150ms; }
-    #mSheet { position:absolute; left:0; right:0; bottom:0; display:flex; flex-direction:column; padding:15px 15px 16px;
-      background:var(--r-surface); border-radius:4px 4px 0 0; box-shadow:0 12px 32px rgba(45,43,43,.22);
+    #mSheet { position:absolute; left:0; right:0; bottom:0; display:flex; flex-direction:column; max-height:94%; overflow-y:auto; overscroll-behavior:contain; padding:12px 20px calc(22px + env(safe-area-inset-bottom));
+      background:var(--r-bg); background-image:radial-gradient(ellipse at 85% 0%, rgba(141,194,170,.16), transparent 50%); border-radius:26px 26px 0 0; box-shadow:0 -8px 40px rgba(20,35,29,.16);
+      font-family:-apple-system, "PingFang SC", "Noto Sans CJK SC", sans-serif;
       transform:translateY(100%); transition:transform 150ms ease-in; }
+    #mSheet::before { content:""; flex:none; width:36px; height:4px; margin:0 auto 10px; border-radius:4px; background:var(--r-track); }
     #mMenu.open #mScrim { opacity:1; transition-duration:200ms; }
     #mMenu.open #mSheet { transform:none; transition:transform 200ms ease-out; }
-    .m-head { display:flex; align-items:flex-start; gap:10px; padding-left:15px; }
-    .m-head > div { flex:1; min-width:0; padding-top:8px; }
-    #mTitle { font-size:20px; line-height:1.35; font-weight:600; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
-    #mCount2 { display:block; margin-top:5px; font-size:13px; }
-    #mScrub { position:relative; height:48px; margin:5px 15px 0; cursor:pointer; }
+    .m-head { display:flex; align-items:flex-start; gap:10px; padding:4px 2px 0; }
+    .m-head > div { flex:1; min-width:0; padding-top:5px; }
+    .m-eyebrow, .m-section { color:var(--r-accent-text); font:600 12px/1.4 -apple-system, "PingFang SC", sans-serif; letter-spacing:.06em; }
+    #mTitle { margin-top:7px; font-size:17px; line-height:1.45; letter-spacing:.01em; font-weight:500; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+    #mCount2 { display:block; margin-top:8px; font-size:13px; letter-spacing:.02em; }
+    #mClose { border-radius:50%; background:var(--r-surface); color:var(--r-text2); }
+    #mClose .ic { width:19px; height:19px; fill:none; }
+    #mScrub { position:relative; height:48px; margin:8px 10px 0; cursor:pointer; }
     #mScrub i { position:absolute; left:0; top:22px; height:4px; border-radius:2px; }
     #mScrubTrack { right:0; background:var(--r-track); }
     #mScrubFill { width:0; background:var(--r-accent); }
     #mThumb { position:absolute; top:14px; left:0; width:20px; height:20px; margin-left:-10px; border-radius:50%;
-      background:var(--r-accent); box-shadow:0 0 0 3px var(--r-surface); }
-    .m-rows { display:flex; flex-direction:column; gap:10px; margin-top:5px; }
-    .m-row { position:relative; display:flex; align-items:center; gap:15px; height:56px; padding-left:15px; font-size:15px; }
-    .m-row > .ic { width:24px; height:24px; color:var(--r-text2); }
+      background:var(--r-accent); box-shadow:0 0 0 4px var(--r-bg); }
+    .m-section { margin:8px 2px 10px; color:var(--r-text2); }
+    .m-rows { display:flex; flex-direction:column; overflow:hidden; border:1px solid var(--r-divider); border-radius:18px; background:var(--r-surface); }
+    .m-row { position:relative; display:flex; align-items:center; gap:12px; min-height:64px; padding:8px 14px; font-size:15px; font-weight:500; letter-spacing:.01em; }
+    .m-row + .m-row { border-top:1px solid var(--r-divider); }
+    .m-group-label { padding:12px 14px 2px; color:var(--r-text2); font:600 12px var(--r-ui-font); }
+    .m-row > .ic { width:38px; height:38px; padding:9px; border-radius:12px; background:var(--r-bg); color:var(--r-accent-text); fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
     .m-row > .grow { flex:1; }
-    .m-sq { width:48px; height:48px; display:flex; align-items:center; justify-content:center; padding:0; border:1px solid var(--r-divider);
-      border-radius:2px; background:transparent; color:var(--r-text); cursor:pointer; }
+    .m-sq { width:48px; height:48px; display:flex; align-items:center; justify-content:center; padding:0; border:0;
+      border-radius:50%; background:var(--r-bg); color:var(--r-accent-text); cursor:pointer; }
     .m-sq:active, #mJumpGo:active, #mTocRow:active { background:var(--r-press); }
-    .m-sq .ic { width:20px; height:20px; }
-    #mSpeedVal { width:92px; text-align:center; font-variant-numeric:tabular-nums; }
+    .m-sq .ic { width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; }
+    #mSpeedVal { width:78px; text-align:center; font-variant-numeric:tabular-nums; }
     #mSpeedVal small { font-size:12px; color:var(--r-text2); }
-    #mJump { width:110px; height:48px; padding:0 10px; border:1px solid var(--r-divider); border-radius:2px; background:var(--r-bg);
-      color:var(--r-text); font:400 15px var(--r-font); caret-color:var(--r-accent); }
-    #mJumpGo { width:64px; height:48px; padding:0; border:0; border-radius:2px; background:transparent; color:var(--r-accent-text);
-      font:600 15px var(--r-font); cursor:pointer; }
-    #mTocRow { padding-right:15px; border-radius:2px; }
+    #mFontVal { width:48px; text-align:center; font-variant-numeric:tabular-nums; }
+    #mContext { width:48px; height:30px; padding:3px; border:0; border-radius:20px; background:var(--r-track); cursor:pointer; }
+    #mContext::after { content:""; display:block; width:24px; height:24px; border-radius:50%; background:var(--r-bg); transition:transform .15s; }
+    #mContext[aria-checked="true"] { background:var(--r-accent); }
+    #mContext[aria-checked="true"]::after { transform:translateX(18px); }
+    #mJump { width:75px; min-width:0; height:48px; padding:0 10px; border:1px solid var(--r-divider); border-radius:12px; background:var(--r-bg);
+      color:var(--r-text); font:400 15px -apple-system, "PingFang SC", sans-serif; caret-color:var(--r-accent); }
+    #mJumpGo { width:58px; height:48px; padding:0; border:0; border-radius:14px; background:transparent; color:var(--r-accent-text);
+      font:600 15px -apple-system, "PingFang SC", sans-serif; cursor:pointer; }
+    #mTocRow { padding-right:14px; }
     #mChapName { flex:1; min-width:0; text-align:right; color:var(--r-text2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .m-row > .chev { width:20px; height:20px; color:var(--r-text2); }
-    #mSearchRow { padding-right:15px; border-radius:2px; cursor:pointer; }
+    .m-row > .chev { width:20px; height:20px; padding:0; background:none; color:var(--r-text2); }
+    #mSearchRow { padding-right:14px; cursor:pointer; }
     #mSearchRow:active { background:var(--r-press); }
     #mToc { position:absolute; inset:0; width:100%; height:100%; opacity:0; cursor:pointer; }
     body:has(#toc.hidden) #mTocRow { display:none; }
-    .m-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:20px; }
+    .m-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:16px; }
+    .m-grid .m-btn { height:56px; border:1px solid var(--r-divider); background:transparent; font:600 14px -apple-system, "PingFang SC", sans-serif; }
+    .m-grid .m-btn:first-child { border-color:transparent; background:var(--r-accent); color:var(--r-on-accent); }
+    .m-grid .m-btn .ic { width:20px; height:20px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+    .m-grid .m-btn:active { opacity:.78; }
+    @media (max-width: 350px) { .m-row { gap:6px; padding-left:10px; padding-right:10px; font-size:14px; } .m-row > .ic:not(.chev) { width:30px; height:30px; padding:5px; } #mSpeedVal { width:60px; } #mJump { width:58px; } #mJumpGo { width:48px; } }
 
     /* 搜索：导航条替换顶部章节行；搜索页占满整屏 */
     body.searching #chap { display:none; }
@@ -214,7 +243,9 @@
     #tip img { width:280px; }
     #tip p { margin:10px 0 0; }
     /* 安卓大多只自带思源宋体常规体，600 字重加不粗（Redmi K60 实测）：用描边模拟粗体，0.025em ≈ 24px 字 0.6px */
-    .android :is(#cur:not(.code):not(.img), .m-h1, #mTitle, .m-btn:not(.quiet), #mJumpGo) { -webkit-text-stroke:0.025em currentColor; }
+    .android :is(#cur:not(.code):not(.img), .m-h1, #mEmpty .m-btn:not(.quiet)) { -webkit-text-stroke:0.01em currentColor; }
+    #mHint { position:absolute; left:0; right:0; bottom:calc(132px + env(safe-area-inset-bottom)); justify-content:center; text-align:center; color:var(--r-text2); font-size:13px; pointer-events:none; }
+    @media (max-height: 500px) { .side { -webkit-line-clamp:1; } #stage { padding-bottom:8px; } }
   }
 </style>
 </head>
@@ -244,12 +275,14 @@
   <div class="side" id="next"></div>
   <div id="welcome">把 <b>.md</b> / <b>.epub</b> / <b>.txt</b> 文件拖进这个窗口<br>或点左上角「打开文件」<br>（会记住上次读的书和读到哪一句）</div>
 </main>
+<div id="mHint" class="m-only hidden">点击左侧 / 右侧切换句子</div>
+<div id="mOverflow" class="m-only hidden">向上滑动查看更多 ↓</div>
 <!-- 以下 m-only 元素只在手机（触屏）上显示 -->
 <div id="mEmpty" class="m-only">
   <div class="m-brand">逐句阅读器</div>
   <div class="m-hero">
-    <div class="m-h1">一句一屏地读 Markdown / EPUB / TXT。</div>
-    <div class="m-sub">会记住上次读的书和读到哪一句。也可以在文件管理器里选中文件，用「逐句阅读器」打开。</div>
+    <div class="m-h1">一次读一句，专注眼前的文字。</div>
+    <div class="m-sub">支持 Markdown、EPUB 和 TXT，自动记住阅读进度。也可以从文件管理器打开书籍。</div>
   </div>
   <div class="m-actions">
     <button id="mEmptyOpen" class="m-btn primary"><svg class="ic"><use href="#i-folder"/></svg>打开文件</button>
@@ -260,11 +293,10 @@
   <div id="mStatus"><span id="mCount"></span><span id="mAutoState"><svg class="ic"><use href="#i-play-circle"/></svg><span id="mAutoText"></span></span></div>
   <div id="mTrack"><div id="mFill"></div></div>
   <div id="mBtns">
-    <button id="mMenuBtn" class="mb" aria-label="菜单"><svg class="ic"><use href="#i-list"/></svg></button>
-    <span style="flex:1"></span>
-    <button id="mPrev" class="mb" aria-label="上一句"><svg class="ic"><use href="#i-caret-left"/></svg></button>
-    <button id="mPlay" class="mb" aria-label="自动播放"><svg class="ic i-play"><use href="#i-play"/></svg><svg class="ic i-pause"><use href="#i-pause"/></svg></button>
-    <button id="mNext" class="mb" aria-label="下一句"><svg class="ic"><use href="#i-caret-right"/></svg></button>
+    <button id="mMenuBtn" class="mb" aria-label="菜单"><svg class="ic" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h11"/></svg></button>
+    <button id="mPrev" class="mb" aria-label="上一句"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m14.5 5-7 7 7 7"/></svg></button>
+    <button id="mPlay" class="mb" aria-label="自动播放"><svg class="ic i-play" viewBox="0 0 24 24"><path d="M8 4.7a1 1 0 0 1 1.5-.87l11 7.3a1 1 0 0 1 0 1.74l-11 7.3A1 1 0 0 1 8 19.3z"/></svg><svg class="ic i-pause" viewBox="0 0 24 24"><path d="M7 5h4v14H7zm6 0h4v14h-4z"/></svg></button>
+    <button id="mNext" class="mb" aria-label="下一句"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m9.5 5 7 7-7 7"/></svg></button>
   </div>
 </div>
 <footer>
@@ -276,30 +308,34 @@
   <div id="mScrim"></div>
   <div id="mSheet">
     <div class="m-head">
-      <div><div id="mTitle"></div><span id="mCount2"></span></div>
-      <button id="mClose" class="mb s48" aria-label="收起菜单"><svg class="ic"><use href="#i-x"/></svg></button>
+      <div><div class="m-eyebrow">正在阅读</div><div id="mTitle"></div><span id="mCount2"></span></div>
+      <button id="mClose" class="mb s48" aria-label="收起菜单"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
     </div>
     <div id="mScrub"><i id="mScrubTrack"></i><i id="mScrubFill"></i><div id="mThumb"></div></div>
+    <div class="m-section">阅读工具</div>
     <div class="m-rows">
-      <div id="mSearchRow" class="m-row"><svg class="ic"><use href="#i-magnifying-glass"/></svg><span class="grow">搜索</span><svg class="ic chev"><use href="#i-caret-right"/></svg></div>
-      <div class="m-row"><svg class="ic"><use href="#i-gauge"/></svg><span class="grow">自动播放速度</span>
+      <div id="mSearchRow" class="m-row"><svg class="ic" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 4.5 4.5"/></svg><span class="grow">搜索</span><svg class="ic chev" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></svg></div>
+      <div class="m-group-label">阅读设置</div>
+      <div class="m-row"><svg class="ic" viewBox="0 0 24 24"><path d="M3 19 9 5l6 14M5 15h8M17 12l3 7M18 16h4"/></svg><span class="grow">阅读字号</span><button id="mFontDown" class="m-sq" aria-label="减小字号"><svg class="ic" viewBox="0 0 24 24"><path d="M5 12h14"/></svg></button><span id="mFontVal"></span><button id="mFontUp" class="m-sq" aria-label="增大字号"><svg class="ic" viewBox="0 0 24 24"><path d="M5 12h14M12 5v14"/></svg></button></div>
+      <div class="m-row"><svg class="ic" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg><span class="grow">显示上下句</span><button id="mContext" role="switch" aria-label="显示上下句" aria-checked="true"></button></div>
+      <div class="m-row"><svg class="ic" viewBox="0 0 24 24"><path d="M4 18a9 9 0 1 1 16 0H4Z"/><path d="m12 15 4-5"/><circle cx="12" cy="15" r="1"/></svg><span class="grow">自动播放速度</span>
         <div style="display:flex;align-items:center">
-          <button id="mSlower" class="m-sq" aria-label="减慢"><svg class="ic"><use href="#i-minus"/></svg></button>
+          <button id="mSlower" class="m-sq" aria-label="减慢"><svg class="ic" viewBox="0 0 24 24"><path d="M5 12h14"/></svg></button>
           <div id="mSpeedVal"><span id="mSpeedNum"></span><small> 字/分</small></div>
-          <button id="mFaster" class="m-sq" aria-label="加快"><svg class="ic"><use href="#i-plus"/></svg></button>
+          <button id="mFaster" class="m-sq" aria-label="加快"><svg class="ic" viewBox="0 0 24 24"><path d="M5 12h14M12 5v14"/></svg></button>
         </div>
       </div>
-      <div class="m-row"><svg class="ic"><use href="#i-hash"/></svg><span class="grow">跳到第 N 句</span>
+      <div class="m-row"><svg class="ic" viewBox="0 0 24 24"><path d="M9 4 7 20M17 4l-2 16M4 9h16M3 15h16"/></svg><span class="grow">跳到第 N 句</span>
         <input id="mJump" type="number" inputmode="numeric" min="1"><button id="mJumpGo">跳转</button>
       </div>
-      <div id="mTocRow" class="m-row"><svg class="ic"><use href="#i-list-bullets"/></svg><span>章节</span>
-        <span id="mChapName"></span><svg class="ic chev"><use href="#i-caret-right"/></svg>
+      <div id="mTocRow" class="m-row"><svg class="ic" viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r=".7"/><circle cx="4.5" cy="12" r=".7"/><circle cx="4.5" cy="18" r=".7"/></svg><span>章节</span>
+        <span id="mChapName"></span><svg class="ic chev" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></svg>
         <select id="mToc" aria-label="跳到章节"></select>
       </div>
     </div>
     <div class="m-grid">
-      <button id="mOpen" class="m-btn"><svg class="ic"><use href="#i-folder"/></svg>打开文件</button>
-      <button id="mTip" class="m-btn"><svg class="ic"><use href="#i-coffee"/></svg>赞赏</button>
+      <button id="mOpen" class="m-btn"><svg class="ic" viewBox="0 0 24 24"><path d="M3 6a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M3 10h18"/></svg>打开文件</button>
+      <button id="mTip" class="m-btn"><svg class="ic" viewBox="0 0 24 24"><path d="M20.8 8.6c0 4.5-8.8 10.4-8.8 10.4S3.2 13.1 3.2 8.6A4.6 4.6 0 0 1 12 6.7a4.6 4.6 0 0 1 8.8 1.9Z"/></svg>赞赏</button>
     </div>
   </div>
 </div>
@@ -576,6 +612,7 @@ function show() {
     if (c.alt) { const cap = document.createElement('div'); cap.className = 'cap'; cap.textContent = c.alt; cur.append(cap); }
   } else fillText(cur, c, Q && Q.q);
   cur.className = c.k === 'h' ? 'h' : c.k === 'code' ? 'code' : c.k === 'img' ? 'img' : (c.t.length > 90 ? 'long' : '');
+  cur.scrollTop = 0;
   if (i > 0) fillText($('prev'), SEGS[i-1]); else $('prev').textContent = '';
   if (i < SEGS.length - 1) fillText($('next'), SEGS[i+1]); else $('next').textContent = '（完）';
   $('chap').textContent = c.k === 'h' ? '' : c.c;
@@ -586,6 +623,8 @@ function show() {
   try { localStorage.setItem(posKey(), i); localStorage.setItem('post:' + BOOK, c.t); } catch (e) {}
   if (Q) { const k = Q.hits.indexOf(i); $('qNavLabel').textContent = `“${Q.q}” ` + (k >= 0 ? `${k + 1}/${Q.hits.length}` : `共 ${Q.hits.length} 句`); }
   showPhone();
+  requestAnimationFrame(updateOverflow);
+  try { if (!localStorage.getItem('mobileTapHintSeen')) $('mHint').classList.remove('hidden'); } catch (e) {}
 }
 function go(n) { if (!SEGS.length) return; i = Math.max(0, Math.min(SEGS.length - 1, n)); show(); }
 function chapter(dir) {
@@ -671,6 +710,7 @@ document.addEventListener('keydown', e => {
   else if (e.key === 'p' || e.key === 'P') toggleAuto();
 });
 $('stage').addEventListener('click', e => { if (!SEGS.length) return $('file').click(); if (e.target.id === 'cur' && e.target.className === 'code' && getSelection().toString()) return;
+  $('mHint').classList.add('hidden'); try { localStorage.setItem('mobileTapHintSeen', '1'); } catch (e) {}
   stopAuto(); go(e.clientX > innerWidth / 2 ? i + 1 : i - 1); });
 $('progress').addEventListener('click', e => { stopAuto(); go(Math.floor(e.clientX / innerWidth * SEGS.length)); });
 $('jump').addEventListener('change', e => { stopAuto(); go(parseInt(e.target.value, 10) - 1); e.target.value = ''; e.target.blur(); });
@@ -688,16 +728,32 @@ addEventListener('drop', e => { e.preventDefault(); dragDepth = 0; document.body
   const f = e.dataTransfer.files[0]; if (f) openFile(f); });
 // ---------- 手机界面（触屏才显示；电脑上这些元素是隐藏的，更新它们没有副作用） ----------
 document.documentElement.classList.toggle('android', /Android/i.test(navigator.userAgent));
+let readingSize = 24, showContext = true;
+try { readingSize = Math.max(18, Math.min(32, Number(localStorage.getItem('readingSize')) || 24)); showContext = localStorage.getItem('showContext') !== 'false'; } catch (e) {}
+function updateOverflow() { const c = $('cur'); $('mOverflow').classList.toggle('hidden', c.scrollHeight - c.clientHeight - c.scrollTop < 3); }
+function applyReadingSettings() {
+  document.documentElement.style.setProperty('--reading-size', readingSize + 'px');
+  document.body.classList.toggle('hide-context', !showContext);
+  $('mFontVal').textContent = readingSize;
+  $('mContext').setAttribute('aria-checked', String(showContext));
+  try { localStorage.setItem('readingSize', readingSize); localStorage.setItem('showContext', showContext); } catch (e) {}
+  requestAnimationFrame(updateOverflow);
+}
+applyReadingSettings();
+$('cur').addEventListener('scroll', updateOverflow);
+addEventListener('resize', updateOverflow);
 const speedNow = () => +$('speed').value || 300;
 function showPhone() {
   const pct = ((i + 1) / SEGS.length * 100) + '%';
-  $('mCount').textContent = $('mCount2').textContent = $('count').textContent;
+  $('mCount').textContent = `已读 ${Math.round((i + 1) / SEGS.length * 100)}% · 第 ${i + 1} 句`;
+  $('mCount2').textContent = $('count').textContent;
   $('mFill').style.width = $('mScrubFill').style.width = $('mThumb').style.left = pct;
   $('mTitle').textContent = BOOK;
   let t = -1; for (let k = 0; k < TOC.length && TOC[k] <= i; k++) t = k;
   $('mChapName').textContent = t >= 0 ? SEGS[TOC[t]].t : '';
   if (t >= 0) $('mToc').value = String(TOC[t]);
-  $('mJump').placeholder = '1–' + SEGS.length;
+  $('mJump').placeholder = '句号';
+  $('mJump').setAttribute('aria-label', '句号，范围 1 到 ' + SEGS.length);
   showSpeed();
 }
 function showSpeed() { $('mSpeedNum').textContent = speedNow(); $('mAutoText').textContent = `自动播放 · ${speedNow()} 字/分`; }
@@ -738,6 +794,9 @@ $('mScrub').addEventListener('click', e => { const r = e.currentTarget.getBoundi
   stopAuto(); go(Math.floor((e.clientX - r.left) / r.width * SEGS.length)); });
 tap('mSlower', () => setSpeed(-20));
 tap('mFaster', () => setSpeed(20));
+tap('mFontDown', () => { readingSize = Math.max(18, readingSize - 2); applyReadingSettings(); });
+tap('mFontUp', () => { readingSize = Math.min(32, readingSize + 2); applyReadingSettings(); });
+tap('mContext', () => { showContext = !showContext; applyReadingSettings(); });
 tap('mJumpGo', mJump);
 $('mJump').addEventListener('keydown', e => { if (e.key === 'Enter') { e.target.blur(); mJump(); } });
 $('mToc').addEventListener('change', e => { stopAuto(); go(+e.target.value); });
